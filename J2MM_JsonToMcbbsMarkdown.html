@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JSON 转 MCBBS(BBCode)/Markdown 转换器</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); color: #333; line-height: 1.6; padding: 20px; min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.1); overflow: hidden; }
+    header { background: #4a69bd; color: white; padding: 25px 30px; text-align: center; }
+    header h1 { font-size: 2.2rem; margin-bottom: 10px; }
+    header p { opacity: 0.9; font-size: 1.05rem; }
+    .main-content { display: flex; flex-wrap: wrap; padding: 20px; }
+    .upload-section { flex: 1 1 100%; padding: 20px; background: #f8f9fa; border-radius: 10px; margin-bottom: 20px; text-align: center; border: 2px dashed #4a69bd; transition: all .3s ease; }
+    .upload-section:hover { background: #eef2f7; border-color: #2c5aa0; }
+    .upload-area { padding: 30px; }
+    .upload-area i { font-size: 3rem; color: #4a69bd; margin-bottom: 15px; display: block; }
+    .file-input { display: none; }
+    .btn { background: #4a69bd; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 600; transition: all .3s ease; display: inline-block; margin: 10px; }
+    .btn:hover { background: #2c5aa0; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,.1); }
+    .btn:active { transform: translateY(0); }
+    .btn.secondary { background: #6c757d; }
+    .btn.secondary:hover { background: #5a6268; }
+
+    .output-section { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 20px; }
+    .output-box { flex: 1 1 calc(50% - 20px); min-width: 300px; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,.05); display: flex; flex-direction: column; }
+    .output-box.full { flex: 1 1 100%; }
+    .box-header { background: #4a69bd; color: white; padding: 15px 20px; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
+    .box-header .icon { font-size: 1.3rem; }
+    .box-content { padding: 20px; flex: 1; overflow: auto; max-height: 520px; }
+
+    textarea { width: 100%; height: 100%; min-height: 320px; padding: 15px; border: 1px solid #ddd; border-radius: 6px; font-family: 'Consolas','Courier New', monospace; font-size: .95rem; resize: vertical; background: #fafafa; }
+    .preview-content { line-height: 1.8; font-size: 1.05rem; padding: 10px; background: #fafafa; border-radius: 6px; border: 1px solid #eee; min-height: 320px; }
+    .preview-content h1, .preview-content h2, .preview-content h3 { color: #4a69bd; margin: 15px 0 10px; padding-bottom: 5px; border-bottom: 1px solid #eaeaea; }
+    .preview-content p { margin: 10px 0; }
+    .preview-content strong { color: #2c5aa0; }
+    .preview-content em { color: #6c757d; }
+    .preview-content ul, .preview-content ol { margin: 10px 0 10px 25px; }
+    .preview-content blockquote { border-left: 4px solid #4a69bd; padding: 5px 15px; margin: 15px 0; background: #f0f4f8; color: #444; }
+    .preview-content code { background: #2d2d2d; color: #f8f8f2; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', monospace; }
+    .preview-content pre { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 6px; overflow: auto; margin: 15px 0; }
+    .preview-content pre code { background: none; padding: 0; }
+    .preview-content a { color: #4a69bd; text-decoration: none; }
+    .preview-content a:hover { text-decoration: underline; }
+
+    .example-section { flex: 1 1 100%; background: #f8f9fa; border-radius: 10px; padding: 20px; margin-top: 20px; }
+    .example-section h3 { color: #4a69bd; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eaeaea; }
+    .example-json { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 0.9rem; overflow: auto; max-height: 240px; }
+    .example-json ul { list-style: none; padding: 0; margin: 0; }
+    .example-json li { margin: 5px 0; }
+    .example-json .key { color: #ff79c6; }
+    .example-json .string { color: #f1fa8c; }
+    .status-bar { background: #f8f9fa; padding: 10px 20px; border-top: 1px solid #eee; font-size: .9rem; color: #6c757d; text-align: center; }
+    .footer { text-align: center; padding: 20px; color: #6c757d; font-size: .9rem; border-top: 1px solid #eee; background: #f8f9fa; }
+    .highlight { color: #e74c3c; font-weight: 600; }
+    @media (max-width: 900px) { .output-box { flex: 1 1 100%; } .main-content { padding: 15px; } header { padding: 20px 15px; } }
+  
+    .box-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .header-actions { display: inline-flex; align-items: center; gap: 10px; }
+    .copy-btn {
+      border: 1px solid rgba(255,255,255,.65);
+      background: rgba(255,255,255,.15);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: transform .05s ease, background .2s ease, border-color .2s ease;
+      user-select: none;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,.25); border-color: rgba(255,255,255,.9); }
+    .copy-btn:active { transform: translateY(1px); }
+    .copy-btn.copied { background: rgba(46, 204, 113, .25); border-color: rgba(46, 204, 113, .75); }
+    
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><i class="fas fa-exchange-alt"></i> JSON 转 MCBBS(BBCode)/Markdown 转换器</h1>
+      <p>上传文章 JSON（包含 <span class="highlight">blocks</span> 数组），生成接近 MCBBS 资讯帖风格的 BBCode 与 Markdown</p>
+    </header>
+
+    <div class="main-content">
+      <div class="upload-section">
+        <div class="upload-area">
+          <i class="fas fa-cloud-upload-alt"></i>
+          <h3>上传 JSON 文件</h3>
+          <p>点击下方按钮选择 JSON 文件，或拖放文件到此处</p>
+          <input type="file" id="fileInput" class="file-input" accept=".json">
+          <button class="btn" onclick="document.getElementById('fileInput').click()">
+            <i class="fas fa-file-upload"></i> 选择 JSON 文件
+          </button>
+          <button class="btn secondary" id="demoBtn">
+            <i class="fas fa-magic"></i> 使用示例
+          </button>
+        </div>
+      </div>
+
+      <div class="output-section">
+        <div class="output-box">
+          <div class="box-header">
+            <span>BBCode 输出（MCBBS 风格）</span>
+            <i class="fas fa-code icon"></i>
+          </div>
+          <div class="box-content">
+            <textarea id="bbcodeOutput" placeholder="上传 JSON 后，BBCode 将显示在这里..."></textarea>
+          </div>
+        </div>
+
+        <div class="output-box">
+          <div class="box-header">
+            <span>Markdown 输出</span>
+            <div class="header-actions">
+              <button class="copy-btn" id="copyMarkdownBtn" title="复制 Markdown 到剪贴板">复制</button>
+              <i class="fas fa-hashtag icon"></i>
+            </div>
+          </div>
+          <div class="box-content">
+            <textarea id="markdownOutput" placeholder="上传 JSON 后，Markdown 将显示在这里..."></textarea>
+          </div>
+        </div>
+
+        <div class="output-box full">
+          <div class="box-header">
+            <span>实时预览（BBCode 近似渲染）</span>
+            <i class="fas fa-eye icon"></i>
+          </div>
+          <div class="box-content">
+            <div id="previewArea" class="preview-content">
+              <p style="text-align: center; color: #6c757d; padding: 40px 0;">上传 JSON 文件后，预览效果将显示在这里...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="example-section">
+        <h3><i class="fas fa-info-circle"></i> 示例 JSON 结构（关键字段）</h3>
+        <p>转换器将优先使用 <span class="highlight">blocks</span>（而不是 content / translated_content）。每个 block 推荐同时提供 source_text 与 translated_text：</p>
+        <div class="example-json">
+          <ul>
+            <li>{</li>
+            <li>  <span class="key">"title"</span>: <span class="string">"Another step towards Vibrant Visuals"</span>,</li>
+            <li>  <span class="key">"translated_title"</span>: <span class="string">"迈向 Vibrant Visuals 的又一步"</span>,</li>
+            <li>  <span class="key">"release_date"</span>: <span class="string">"2026-02-18T15:00:34Z"</span>,</li>
+            <li>  <span class="key">"url"</span>: <span class="string">"https://..."</span>,</li>
+            <li>  <span class="key">"author"</span>: <span class="string">"Staff"</span>,</li>
+            <li>  <span class="key">"description"</span>: <span class="string">"We’re still hard at work..."</span>,</li>
+            <li>  <span class="key">"blocks"</span>: [</li>
+            <li>    { <span class="key">"type"</span>: <span class="string">"h2"</span>, <span class="key">"source_text"</span>: <span class="string">"Introducing: Vulkan"</span>, <span class="key">"translated_text"</span>: <span class="string">"介绍：Vulkan"</span> },</li>
+            <li>    { <span class="key">"type"</span>: <span class="string">"p"</span>,  <span class="key">"source_text"</span>: <span class="string">"Vulkan is a graphics API..."</span>, <span class="key">"translated_text"</span>: <span class="string">"Vulkan 是一种图形 API..."</span> }</li>
+            <li>  ]</li>
+            <li>}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span id="statusText">准备就绪 - 等待文件上传</span>
+    </div>
+
+    <div class="footer">
+      <p>提示：本工具只做格式转换，不会上传文件到服务器（纯前端本地处理）。</p>
+    </div>
+  </div>
+
+<script>
+  // DOM
+  const fileInput = document.getElementById('fileInput');
+  const bbcodeOutput = document.getElementById('bbcodeOutput');
+  const markdownOutput = document.getElementById('markdownOutput');
+  const previewArea = document.getElementById('previewArea');
+  const statusText = document.getElementById('statusText');
+  const demoBtn = document.getElementById('demoBtn');
+  const copyMarkdownBtn = document.getElementById('copyMarkdownBtn');
+
+  fileInput.addEventListener('change', handleFileUpload);
+  demoBtn.addEventListener('click', loadDemoData);
+  copyMarkdownBtn.addEventListener('click', () => copyToClipboard(markdownOutput.value, copyMarkdownBtn));
+
+  
+  function copyToClipboard(text, btn) {
+    const value = String(text || '');
+    if (!value.trim()) {
+      updateStatus('提示：没有可复制的内容', true);
+      return;
+    }
+    const done = () => {
+      if (btn) {
+        btn.classList.add('copied');
+        const old = btn.textContent;
+        btn.textContent = '已复制';
+        setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1200);
+      }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(done).catch(() => {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) { updateStatus('复制失败：浏览器阻止了剪贴板访问', true); }
+        document.body.removeChild(ta);
+      });
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { updateStatus('复制失败：浏览器不支持剪贴板 API', true); }
+      document.body.removeChild(ta);
+    }
+  }
+
+
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+      updateStatus('错误：请选择 JSON 文件', true);
+      return;
+    }
+
+    updateStatus(`正在处理: ${file.name}...`);
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const jsonContent = JSON.parse(e.target.result);
+        const { bbcode, markdown } = convertJson(jsonContent);
+        displayResult(bbcode, markdown);
+        updateStatus('成功：已生成 BBCode / Markdown 并显示预览', false);
+      } catch (error) {
+        updateStatus(`错误：无效的 JSON 文件 - ${error.message}`, true);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function loadDemoData() {
+    // 近似你的示例 news_Another_step_towards_Vibrant_Visuals_2026-02-18_15_00_34.json 的结构
+    const demoJson = {
+      "title": "Another step towards Vibrant Visuals",
+      "translated_title": "迈向 Vibrant Visuals 的又一步",
+      "release_date": "2026-02-18T15:00:34Z",
+      "url": "https://www.minecraft.net/zh-hans/article/another-step-towards-vibrant-visuals-for-java-edition",
+      "author": "Staff",
+      "description": "We’re still hard at work getting Vibrant Visuals ready for Minecraft: Java Edition...",
+      "blocks": [
+        {"id":"b0001","type":"p","source_text":"We’re still hard at work getting Vibrant Visuals ready for Minecraft: Java Edition...","translated_text":"我们仍在努力为 Minecraft: Java 版准备 Vibrant Visuals..."},
+        {"id":"b0003","type":"h2","source_text":"What are we changing?","translated_text":"我们要改变什么？"},
+        {"id":"b0004","type":"p","source_text":"Today, Minecraft: Java Edition uses a technology called OpenGL...","translated_text":"目前，Minecraft: Java 版使用一种名为 OpenGL 的技术..."},
+        {"id":"b0008","type":"h2","source_text":"Introducing: Vulkan","translated_text":"介绍：Vulkan"},
+        {"id":"b0009","type":"p","source_text":"Vulkan is a graphics API that has a 10-year history...","translated_text":"Vulkan 是一种已有十年市场历史的图形 API..."}
+      ]
+    };
+
+    try {
+      const { bbcode, markdown } = convertJson(demoJson);
+      displayResult(bbcode, markdown);
+      updateStatus('成功：已加载示例数据并生成 BBCode / Markdown', false);
+    } catch (error) {
+      updateStatus(`错误：${error.message}`, true);
+    }
+  }
+
+  function convertJson(json) {
+    const bbcode = convertJsonToBBCode(json);
+    const markdown = convertJsonToMarkdown(json);
+    return { bbcode, markdown };
+  }
+
+  // ----------------------------
+  // Core: JSON -> BBCode
+  // ----------------------------
+  function convertJsonToBBCode(json) {
+    const title = (json.translated_title || json.title || '').trim();
+    const enTitle = (json.title || '').trim();
+    const url = (json.url || '').trim();
+    const author = (json.author || '').trim();
+    const desc = (json.description || '').trim();
+    const release = formatDateTimeCN(json.release_date);
+
+    let out = '';
+
+    // 头部（仿 MCBBS 资讯帖的 “NEWS + 中英文标题 + 简介/元信息”）
+    out += `[align=center][size=5][b]NEWS[/b][/size][/align]\n`;
+    if (title) out += `[align=center][size=6][b]${escapeBB(title)}[/b][/size][/align]\n`;
+    if (enTitle && enTitle !== title) out += `[align=center][size=4]${escapeBB(enTitle)}[/size][/align]\n\n`;
+
+    const metaLines = [];
+    if (release) metaLines.push(`[b]时间：[/b] ${escapeBB(release)}`);
+    if (author) metaLines.push(`[b]作者：[/b] ${escapeBB(author)}`);
+    if (url) metaLines.push(`[b]原文：[/b] [url=${escapeBB(url)}]${escapeBB(url)}[/url]`);
+    if (desc) metaLines.push(`[b]简介：[/b][i]${escapeBB(desc)}[/i]`);
+    if (metaLines.length) out += `[quote]${metaLines.join('\n')}[/quote]`;
+
+    out += `\n[hr]\n`;
+
+    // 正文：优先 blocks（content / translated_content 仅兼容旧版，不在此使用）
+    const blocks = Array.isArray(json.blocks) ? json.blocks : [];
+    if (!blocks.length) {
+      out += `[i]（未找到 blocks 字段或 blocks 为空）[/i]`;
+      return out.trim();
+    }
+
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const next = blocks[i + 1];
+      out += renderBlockBBCode(block) + '\n';
+
+      // 当下方是标题时，插入分割线（更接近 MCBBS 资讯帖的阅读节奏）
+      const nextType = next ? String(next.type || 'p').toLowerCase() : '';
+      const isNextHeading = ['h1','h2','h3','h4'].includes(nextType);
+      if (isNextHeading) out += `\n[hr]\n`;
+    }
+
+    // 结尾（可按需删除）
+    // out += `[size=1][color=#888888]（由转换器自动排版）[/color][/size]`;
+
+    // 结尾：工具署名 + 实用链接（仿 MCBBS 存档帖风格）
+    out += `[hr][size=2][b]【本文排版借助了： JBAiGNN、ChatGPT等工具 】[/b][/size]\n\n`;
+    out += `[b]实用链接[/b]\n`;
+    out += `官方服务端 jar 下载地址\n正版启动器下载地址\n漏洞报告站点（仅限英文）\n官方反馈网站（仅限英文，适用于洞穴与山崖更新）\n\n`;
+    out += `[b]如何游玩正式版？[/b]\n`;
+    out += `对于正版用户：请打开官方启动器，选择「最新版本」即可。\n`;
+    out += `对于非正版用户：请于 推荐启动器列表 寻找合适的启动器。\n目前绝大多数主流启动器都带有下载功能。\n如仍有疑惑请到 原版问答 板块提问。\n\n`;
+    out += `[b]想了解更多资讯？[/b]\n`;
+    out += `外部来源以及详细的更新条目追踪\n`;
+    out += `我的世界中文论坛 - 幻翼块讯板块\n`;
+
+    return out.trim();
+  }
+
+  function renderBlockBBCode(block) {
+    const type = String(block.type || 'p').toLowerCase();
+    const src = normalizeText(block.source_text || '');
+    const tr = normalizeText(block.translated_text || '');
+
+    // 先处理内联链接（Markdown 链接 -> BBCode）
+    const srcBB = mdLinksToBBCode(src);
+    const trBB  = mdLinksToBBCode(tr);
+
+    const duo = (main, sub) => {
+      if (main && sub) {
+        // 译文在上，原文用灰色（更接近论坛双语排版阅读体验）
+        return `${main}\n[color=#bcbcbc]${sub}[/color]\n`;
+      }
+      return main || sub || '';
+    };
+
+    if (type === 'h1') return `[size=7][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
+    if (type === 'h2') return `[size=6][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
+    if (type === 'h3') return `[size=5][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
+    if (type === 'h4') return `[size=4][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
+    if (type === 'blockquote' || type === 'quote') return `[quote]${duo(escapeBB(trBB), escapeBB(srcBB))}[/quote]`;
+    if (type === 'code' || type === 'pre') return `[code]${escapeBB(src)}[/code]`; // code 内不做链接替换，保留原样
+    if (type === 'img' || type === 'image') {
+      const u = (block.url || block.src || '').trim();
+      const alt = (block.alt || block.imageAltText || '').trim();
+      if (!u) return alt ? `[i]${escapeBB(alt)}[/i]` : '';
+      return alt ? `[img]${escapeBB(u)}[/img]\n[i]${escapeBB(alt)}[/i]` : `[img]${escapeBB(u)}[/img]`;
+    }
+    if (type === 'ul' || type === 'ol') {
+      const items = Array.isArray(block.items) ? block.items : [];
+      const tag = type === 'ol' ? 'ol' : 'ul';
+      const li = items.map(it => `[*]${escapeBB(mdLinksToBBCode(normalizeText(it)) )}`).join('\n');
+      return `[${tag}]\n${li}\n[/${tag}]`;
+    }
+    if (type === 'li') {
+      return `${duo(escapeBB(trBB), escapeBB(srcBB))}`;
+    }
+
+    // default: paragraph
+    return duo(escapeBB(trBB), escapeBB(srcBB));
+  }
+
+  // ----------------------------
+  // Core: JSON -> Markdown
+  // ----------------------------
+  function convertJsonToMarkdown(json) {
+    const title = (json.translated_title || json.title || '').trim();
+    const enTitle = (json.title || '').trim();
+    const url = (json.url || '').trim();
+    const author = (json.author || '').trim();
+    const desc = (json.description || '').trim();
+    const release = formatDateTimeCN(json.release_date);
+
+    let out = '';
+
+    out += `**NEWS**\n\n`;
+    if (title) out += `# ${title}\n`;
+    if (enTitle && enTitle !== title) out += `_${enTitle}_\n`;
+    out += `\n`;
+
+    const meta = [];
+    if (release) meta.push(`- 时间：${release}`);
+    if (author) meta.push(`- 作者：${author}`);
+    if (url) meta.push(`- 原文：${url}`);
+    if (desc) meta.push(`- 简介：${stripNewlines(desc)}`);
+    if (meta.length) out += meta.join('\n') + `\n\n`;
+
+    out += `---\n\n`;
+
+    const blocks = Array.isArray(json.blocks) ? json.blocks : [];
+    if (!blocks.length) return (out + `（未找到 blocks 字段或 blocks 为空）`).trim();
+
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const next = blocks[i + 1];
+      out += renderBlockMarkdown(block) + '\n\n';
+
+      // 当下方是标题时，插入分割线
+      const nextType = next ? String(next.type || 'p').toLowerCase() : '';
+      const isNextHeading = ['h1','h2','h3','h4'].includes(nextType);
+      if (isNextHeading) out += `---\n\n`;
+    }
+
+    // 结尾：工具署名 + 实用链接
+    out += `\n---\n**【本文排版借助了： JBAiGNN、ChatGPT等工具 】**\n\n`;
+    out += `## 实用链接\n`;
+    out += `- 官方服务端 jar 下载地址\n- 正版启动器下载地址\n- 漏洞报告站点（仅限英文）\n- 官方反馈网站（仅限英文，适用于洞穴与山崖更新）\n\n`;
+    out += `## 如何游玩正式版？\n`;
+    out += `对于正版用户：请打开官方启动器，选择「最新版本」即可。\n`;
+    out += `对于非正版用户：请于 推荐启动器列表 寻找合适的启动器。\n目前绝大多数主流启动器都带有下载功能。\n如仍有疑惑请到 原版问答 板块提问。\n\n`;
+    out += `## 想了解更多资讯？\n`;
+    out += `外部来源以及详细的更新条目追踪 \n`;
+    out += `我的世界中文论坛 - 幻翼块讯板块\n`;
+
+    return out.trim();
+  }
+
+  function renderBlockMarkdown(block) {
+    const type = String(block.type || 'p').toLowerCase();
+    const src = normalizeText(block.source_text || '');
+    const tr = normalizeText(block.translated_text || '');
+
+    const duo = (main, sub) => {
+      if (main && sub) return `${main}\n\n> ${sub.replace(/\n/g, '\n> ')}`;
+      return main || (sub ? `> ${sub.replace(/\n/g, '\n> ')}` : '');
+    };
+
+    if (type === 'h1') return `# ${stripNewlines(tr || src)}\n\n> ${stripNewlines(src && tr ? src : '')}`.trim();
+    if (type === 'h2') return `## ${stripNewlines(tr || src)}\n\n> ${stripNewlines(src && tr ? src : '')}`.trim();
+    if (type === 'h3') return `### ${stripNewlines(tr || src)}\n\n> ${stripNewlines(src && tr ? src : '')}`.trim();
+    if (type === 'h4') return `#### ${stripNewlines(tr || src)}\n\n> ${stripNewlines(src && tr ? src : '')}`.trim();
+    if (type === 'blockquote' || type === 'quote') return `> ${tr.replace(/\n/g, '\n> ')}\n> \n> ${src.replace(/\n/g, '\n> ')}`.trim();
+    if (type === 'code' || type === 'pre') {
+      const code = src || tr || '';
+      return `\n${code}\n`.trim();
+    }
+    if (type === 'img' || type === 'image') {
+      const u = (block.url || block.src || '').trim();
+      const alt = (block.alt || block.imageAltText || '').trim() || 'image';
+      return u ? `![${alt}](${u})` : (alt ? `*${alt}*` : '');
+    }
+    if (type === 'ul' || type === 'ol') {
+      const items = Array.isArray(block.items) ? block.items : [];
+      const ordered = type === 'ol';
+      return items.map((it, i) => ordered ? `${i+1}. ${it}` : `- ${it}`).join('\n');
+    }
+    if (type === 'li') return `${duo(tr, src)}`;
+
+    return duo(tr, src);
+  }
+
+  // ----------------------------
+  // Preview: BBCode -> HTML (very lightweight, approximate)
+  // ----------------------------
+  function displayResult(bbcode, markdown) {
+    bbcodeOutput.value = bbcode;
+    markdownOutput.value = markdown;
+    previewArea.innerHTML = convertBBCodeToHtml(bbcode);
+  }
+
+  function convertBBCodeToHtml(bbcode) {
+    let html = escapeHtml(bbcode);
+
+    // Headings / sizes (approx)
+    html = html.replace(/\[size=(\d+)\]\[b\]([\s\S]*?)\[\/b\]\[\/size\]/gi, (m, s, t) => {
+      const n = parseInt(s, 10);
+      if (n >= 6) return `<h1>${t}</h1>`;
+      if (n === 5) return `<h2>${t}</h2>`;
+      if (n === 4) return `<h3>${t}</h3>`;
+      return `<strong>${t}</strong>`;
+    });
+
+    // Align
+    html = html.replace(/\[align=center\]([\s\S]*?)\[\/align\]/gi, '<div style="text-align:center">$1</div>');
+
+    // Basic formatting
+    html = html.replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong>$1</strong>');
+    html = html.replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>');
+    html = html.replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>');
+    html = html.replace(/\[color=([^\]]+)\]([\s\S]*?)\[\/color\]/gi, '<span style="color:$1">$2</span>');
+
+    // Links
+    html = html.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, '<a href="$1" target="_blank" rel="noopener">$2</a>');
+
+    // Quote / code / hr / img
+    html = html.replace(/\[quote\]([\s\S]*?)\[\/quote\]/gi, '<blockquote>$1</blockquote>');
+    html = html.replace(/\[code\]([\s\S]*?)\[\/code\]/gi, '<pre><code>$1</code></pre>');
+    html = html.replace(/\[hr\]/gi, '<hr />');
+    html = html.replace(/\[img\]([^\[]+?)\[\/img\]/gi, '<img src="$1" alt="" style="max-width:100%;border-radius:8px;" />');
+
+    // Lists (very simple)
+    html = html.replace(/\[ul\]([\s\S]*?)\[\/ul\]/gi, (m, inner) => `<ul>${inner}</ul>`);
+    html = html.replace(/\[ol\]([\s\S]*?)\[\/ol\]/gi, (m, inner) => `<ol>${inner}</ol>`);
+    html = html.replace(/\[\*\]([^\n<]+)(\n|$)/g, '<li>$1</li>$2');
+
+    // Newlines -> paragraphs
+    html = html.replace(/\n/g, '<br>');
+    html = html.replace(/<br><br>/g, '</p><p>');
+    html = '<p>' + html + '</p>';
+    html = html.replace(/<p><\/p>/g, '');
+    return html;
+  }
+
+  // ----------------------------
+  // Utilities
+  // ----------------------------
+  function formatDateTimeCN(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString('zh-CN', { hour12: false });
+  }
+
+  function normalizeText(t) {
+    return String(t || '').replace(/\r\n/g, '\n').trim();
+  }
+  function stripNewlines(t) {
+    return String(t || '').replace(/\s+/g, ' ').trim();
+  }
+
+  // Convert Markdown links [text](url) to BBCode [url=url]text[/url]
+  function mdLinksToBBCode(text) {
+    return String(text || '').replace(/\[([^\]]+)\]\((https?:\/\/[^\)\s]+)\)/g, '[url=$2]$1[/url]');
+  }
+
+  // BBCode escaping: keep content readable; avoid breaking tags we generate
+  function escapeBB(text) {
+    // 不做过度转义：只处理最容易导致断行/不可见的控制字符
+    return String(text || '').replace(/\u0000/g, '');
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function updateStatus(message, isError = false) {
+    statusText.textContent = message;
+    statusText.style.color = isError ? '#e74c3c' : '#2ecc71';
+    if (!isError) {
+      setTimeout(() => {
+        statusText.textContent = '就绪 - 等待新的文件上传';
+        statusText.style.color = '#6c757d';
+      }, 3000);
+    }
+  }
+</script>
+</body>
+</html>
