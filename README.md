@@ -1,5 +1,6 @@
 # MinecraftJJTools
 通过AI翻译Minecraft新闻，并导出成json，格式转换成BBcode或Markdown
+[网页试用](https://jiubook.github.io/MinecraftJJTools/J2MM_JsonToMcbbsMarkdown.html)
 
 # JBAiGNN_JiuBookAiGetNewestNews
 通过AI翻译Minecraft新闻，并导出成json
