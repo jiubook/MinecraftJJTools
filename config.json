@@ -1,0 +1,31 @@
+{
+  "openai_compat": {
+    "host": "www.任意API网站.com",
+    "endpoint": "/v1/chat/completions",
+    "api_key_env": "OPENAI_API_KEY",
+    "api_key": "sk-在这里填你的Key（可留空用环境变量）",
+    "model": "在这里填你的Model名字",
+    "max_tokens": 10000,
+    "timeout": 30
+  },
+  "prompts": {
+    "translate_text_default": "请将下面文本翻译成中文，并尽量保持原有格式（换行、项目符号、标点）。\n要求：\n- 保留版本号/编号（如 MC-12345）、URL、代码片段不被改写\n- 如包含 Markdown 链接 [text](url)，请保留链接结构，只翻译可见文字\n- 仅输出译文正文，不要额外解释",
+    "translate_blocks_system": "你是专业技术文档译者。请把用户提供的 JSON 数组逐条翻译成简体中文。\n输出要求（非常重要）：\n1) 只输出一个 JSON 数组，数组元素为 {\"id\":..., \"translated_text\":...}；不要输出任何额外文字。\n2) 必须保留并原样输出每个 id。\n3) 保留版本号/编号（如 MC-12345）、URL、代码片段、反引号包裹内容不改写。\n4) 如果原文包含 Markdown 链接 [text](url)，请保留链接结构，只翻译可见文字 text。\n5) 保留原有换行与列表语气，避免把多行合并成一行。",
+    "translate_title_system": "请将下面标题翻译成简体中文。要求：保留版本号/编号/专有名词的拼写，不要添加额外解释，只输出译文标题。"
+  },
+  "minecraft_api": {
+    "search_url": "https://net-secondary.web.minecraft-services.net/api/v1.0/zh-cn/search",
+    "pageSize": 3,
+    "sortType": "Recent",
+    "category": "News",
+    "site_base": "https://www.minecraft.net"
+  },
+  "http": {
+    "verify_ssl": false,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
+    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+  },
+  "output": {
+    "save_dir": "minecraft_news"
+  }
+}
