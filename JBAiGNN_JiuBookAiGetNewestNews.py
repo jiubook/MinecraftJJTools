@@ -30,7 +30,7 @@ DEFAULT_CONFIG = {
         "api_key": "",
         "model": "*******这里填写你要调用的Model名字******",
         "max_tokens": 10000,
-        "timeout": 30
+        "timeout": 120
     },
     "prompts": {
         "translate_text_default": (
@@ -123,7 +123,7 @@ HEADERS_HTML = {
 
 def get_base64_from_image(image_url):
     try:
-        resp = requests.get(image_url, timeout=10, verify=CFG["http"]["verify_ssl"])
+        resp = requests.get(image_url, timeout=120, verify=CFG["http"]["verify_ssl"])
         resp.raise_for_status()
         img_bytes = resp.content
         b64 = base64.b64encode(img_bytes).decode("utf-8")
@@ -144,6 +144,8 @@ def translate_text(text, system_prompt=None):
     调用兼容 OpenAI Chat Completions 接口的翻译函数（通过 config.json 配置）。
     返回：译文字符串（message.content）
     """
+    print(f"正在翻译{text}")
+    print(f"运行时超时设置: {CFG['openai_compat']['timeout']}")
     system_prompt = system_prompt or CFG["prompts"]["translate_text_default"]
 
     host = CFG["openai_compat"]["host"]
@@ -151,7 +153,8 @@ def translate_text(text, system_prompt=None):
     api_key = CFG["openai_compat"]["api_key"]
     model = CFG["openai_compat"]["model"]
     max_tokens = int(CFG["openai_compat"].get("max_tokens", 10000))
-    timeout = int(CFG["openai_compat"].get("timeout", 30))
+    timeout = int(CFG["openai_compat"].get("timeout", 120))
+    verify_ssl = CFG["http"]["verify_ssl"]
 
     if not api_key or "********" in api_key:
         print("[Translate] 未配置 API Key。请在 config.json 填写 openai_compat.api_key 或设置环境变量。")
@@ -165,7 +168,8 @@ def translate_text(text, system_prompt=None):
         print("[Translate] 未配置 Model。请在 config.json 填写 openai_compat.model。")
         return None
 
-    conn = http.client.HTTPSConnection(host, timeout=timeout)
+    # 构建完整的API URL
+    api_url = f"https://{host}{endpoint}"
 
     headers = {
         "Accept": "application/json",
@@ -173,35 +177,41 @@ def translate_text(text, system_prompt=None):
         "Content-Type": "application/json"
     }
 
-    payload = json.dumps({
+    payload = {
         "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": text}
         ],
         "max_tokens": max_tokens
-    })
-
-    conn.request("POST", endpoint, payload, headers)
-    res = conn.getresponse()
-    data = res.read().decode("utf-8")
-
-    # 可选：调试输出
-    print("返回原始结果:", data)
+    }
 
     try:
-        result = json.loads(data)
-    except json.JSONDecodeError as e:
-        print("解析 JSON 失败！", e)
-        return None
+        # 使用 requests 发送 POST 请求，统一处理 SSL 验证
+        response = requests.post(
+            api_url,
+            json=payload,
+            headers=headers,
+            timeout=timeout,
+            verify=verify_ssl
+        )
+        response.raise_for_status()  # 检查 HTTP 状态码
 
-    try:
+        result = response.json()
         content = result["choices"][0]["message"]["content"]
-    except (KeyError, IndexError) as e:
-        print("返回结果结构与预期不符！", e)
-        return None
+        # 可选：调试输出
+        print("返回原始结果:", content)
+        return content
 
-    return content
+    except requests.exceptions.RequestException as e:
+        print(f"[Translate] 网络请求失败: {e}")
+        return None
+    except (KeyError, IndexError, json.JSONDecodeError) as e:
+        print(f"[Translate] 响应解析失败: {e}")
+        # 可选：打印原始响应内容以供调试
+        if 'response' in locals():
+            print(f"原始响应: {response.text}")
+        return None
 
 
 # -----------------------------
@@ -220,7 +230,7 @@ def get_latest_news_via_api():
     try:
         response = requests.get(
             api_url, params=params, headers=HEADERS_HTML,
-            timeout=10, verify=CFG["http"]["verify_ssl"]
+            timeout=120, verify=CFG["http"]["verify_ssl"]
         )
         print("API Response Code:", response.status_code)
         response.raise_for_status()
@@ -230,6 +240,7 @@ def get_latest_news_via_api():
         if not items:
             print("API 中未返回任何新闻条目")
             return None
+
         #***************************
         # 最新一个新闻项为0，第二个为1
         #***************************
@@ -393,7 +404,7 @@ def parse_article_page(article_url):
 
     try:
         response = requests.get(
-            article_url, headers=HEADERS_HTML, timeout=10,
+            article_url, headers=HEADERS_HTML, timeout=120,
             verify=CFG["http"]["verify_ssl"]
         )
         response.raise_for_status()
@@ -456,7 +467,7 @@ def parse_article_page(article_url):
         return None
 
 
-def _chunk_items_for_translation(items, max_chars=6000, max_items=30):
+def _chunk_items_for_translation(items, max_chars=1000, max_items=5):
     batches = []
     cur = []
     cur_len = 0

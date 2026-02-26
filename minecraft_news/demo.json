@@ -1,0 +1,12 @@
+{
+  "title": "Another step towards Vibrant Visuals",
+  "translated_title": "迈向 Vibrant Visuals 的又一步",
+  "release_date": "2026-02-18T15:00:34Z",
+  "url": "https://...",
+  "author": "Staff",
+  "description": "We’re still hard at work...",
+  "blocks": [
+    {"id":"b0001","type":"p","source_text":"We’re still hard at work...","translated_text":"我们仍在努力..."},
+    {"id":"b0003","type":"h2","source_text":"What are we changing?","translated_text":"我们要改变什么？"}
+  ]
+}

@@ -6,7 +6,7 @@
     "api_key": "sk-在这里填你的Key（可留空用环境变量）",
     "model": "在这里填你的Model名字",
     "max_tokens": 10000,
-    "timeout": 30
+    "timeout": 120
   },
   "prompts": {
     "translate_text_default": "请将下面文本翻译成中文，并尽量保持原有格式（换行、项目符号、标点）。\n要求：\n- 保留版本号/编号（如 MC-12345）、URL、代码片段不被改写\n- 如包含 Markdown 链接 [text](url)，请保留链接结构，只翻译可见文字\n- 仅输出译文正文，不要额外解释",
