@@ -9,16 +9,17 @@
     "timeout": 120
   },
   "prompts": {
-    "translate_text_default": "请将下面文本翻译成中文，并尽量保持原有格式（换行、项目符号、标点）。\n要求：\n- 保留版本号/编号（如 MC-12345）、URL、代码片段不被改写\n- 如包含 Markdown 链接 [text](url)，请保留链接结构，只翻译可见文字\n- 仅输出译文正文，不要额外解释",
-    "translate_blocks_system": "你是专业技术文档译者。请把用户提供的 JSON 数组逐条翻译成简体中文。\n输出要求（非常重要）：\n1) 只输出一个 JSON 数组，数组元素为 {\"id\":..., \"translated_text\":...}；不要输出任何额外文字。\n2) 必须保留并原样输出每个 id。\n3) 保留版本号/编号（如 MC-12345）、URL、代码片段、反引号包裹内容不改写。\n4) 如果原文包含 Markdown 链接 [text](url)，请保留链接结构，只翻译可见文字 text。\n5) 保留原有换行与列表语气，避免把多行合并成一行。",
-    "translate_title_system": "请将下面标题翻译成简体中文。要求：保留版本号/编号/专有名词的拼写，不要添加额外解释，只输出译文标题。"
+    "translate_text_default": "你是专业的 Minecraft 游戏翻译。请将下面文本翻译成简体中文。\n翻译规则（非常重要）：\n1. 使用 Minecraft 官方中文译名（Java版）。\n2. 不要直译游戏术语。\n要求：\n- 保留版本号/编号（如 MC-12345）、URL、代码片段、反引号内容不被改写\n- 如包含 Markdown 链接 [text](url)，请只翻译 visible text\n- 仅输出译文，不要解释",
+    "translate_blocks_system": "你是 Minecraft 官方更新日志翻译专家，请把用户提供的 JSON 数组逐条翻译成简体中文。保持游戏特有的语气，专业且简洁。\n翻译规则（非常重要）：\n1. 使用 Minecraft 官方中文译名（Java版）。\n2. 不要直译游戏术语。\n输出要求：\n1. 只输出 JSON 数组\n2. 每项格式：{\"id\":..., \"translated_text\":...}\n3. 不要输出任何解释\n4. 保留 URL / MC-编号 / 代码\n5. 保留换行",
+    "translate_title_system": "请将 Minecraft 新闻标题翻译成简体中文。要求：保留版本号/编号/专有名词的拼写，不要添加额外解释，只输出译文标题。"
   },
   "minecraft_api": {
     "search_url": "https://net-secondary.web.minecraft-services.net/api/v1.0/zh-cn/search",
-    "pageSize": 3,
+    "pageSize": 15,
     "sortType": "Recent",
     "category": "News",
-    "site_base": "https://www.minecraft.net"
+    "site_base": "https://www.minecraft.net",
+	"timeout": 30
   },
   "http": {
     "verify_ssl": false,

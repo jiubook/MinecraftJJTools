@@ -16,6 +16,8 @@ import base64
 import hashlib
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup, NavigableString, Tag
+import time
+import threading
 
 
 # -----------------------------
@@ -34,23 +36,29 @@ DEFAULT_CONFIG = {
     },
     "prompts": {
         "translate_text_default": (
-            "请将下面文本翻译成中文，并尽量保持原有格式（换行、项目符号、标点）。\n"
+            "你是专业的 Minecraft 游戏翻译。请将下面文本翻译成简体中文。\n"
+            "翻译规则（非常重要）：\n"
+            "1. 使用 Minecraft 官方中文译名（Java版）。\n"
+            "2. 不要直译游戏术语。\n"
             "要求：\n"
-            "- 保留版本号/编号（如 MC-12345）、URL、代码片段不被改写\n"
-            "- 如包含 Markdown 链接 [text](url)，请保留链接结构，只翻译可见文字\n"
-            "- 仅输出译文正文，不要额外解释"
+            "- 保留版本号/编号（如 MC-12345）、URL、代码片段、反引号内容不被改写\n"
+            "- 如包含 Markdown 链接 [text](url)，请只翻译 visible text\n"
+            "- 仅输出译文，不要解释"
         ),
         "translate_blocks_system": (
-            "你是专业技术文档译者。请把用户提供的 JSON 数组逐条翻译成简体中文。\n"
-            "输出要求（非常重要）：\n"
-            "1) 只输出一个 JSON 数组，数组元素为 {\"id\":..., \"translated_text\":...}；不要输出任何额外文字。\n"
-            "2) 必须保留并原样输出每个 id。\n"
-            "3) 保留版本号/编号（如 MC-12345）、URL、代码片段、反引号包裹内容不改写。\n"
-            "4) 如果原文包含 Markdown 链接 [text](url)，请保留链接结构，只翻译可见文字 text。\n"
-            "5) 保留原有换行与列表语气，避免把多行合并成一行。"
+            "你是 Minecraft 官方更新日志翻译专家，请把用户提供的 JSON 数组逐条翻译成简体中文。保持游戏特有的语气，专业且简洁。\n"
+            "翻译规则（非常重要）：\n"
+            "1. 使用 Minecraft 官方中文译名（Java版）。\n"
+            "2. 不要直译游戏术语。\n"
+            "输出要求：\n"
+            "1. 只输出 JSON 数组\n"
+            "2. 每项格式：{\"id\":..., \"translated_text\":...}\n"
+            "3. 不要输出任何解释\n"
+            "4. 保留 URL / MC-编号 / 代码\n"
+            "5. 保留换行\n"
         ),
         "translate_title_system": (
-            "请将下面标题翻译成简体中文。要求：保留版本号/编号/专有名词的拼写，不要添加额外解释，只输出译文标题。"
+            "请将 Minecraft 新闻标题翻译成简体中文。要求：保留版本号/编号/专有名词的拼写，不要添加额外解释，只输出译文标题。"
         )
     },
     "minecraft_api": {
@@ -229,10 +237,10 @@ def translate_text(text, system_prompt=None):
 # -----------------------------
 
 def get_latest_news_via_api():
-    """通过官方 API 获取最新新闻列表，并返回第一个新闻的详细信息 URL 和 meta"""
+    """通过官方 API 获取最新的多条新闻列表"""
     api_url = CFG["minecraft_api"]["search_url"]
     params = {
-        "pageSize": CFG["minecraft_api"]["pageSize"],
+        "pageSize": CFG["minecraft_api"]["pageSize"],  # 配置文件控制页面大小
         "sortType": CFG["minecraft_api"]["sortType"],
         "category": CFG["minecraft_api"]["category"]
     }
@@ -250,29 +258,27 @@ def get_latest_news_via_api():
         items = result.get("result", {}).get("results", [])
         if not items:
             print("API 中未返回任何新闻条目")
-            return None
+            return []
 
-        #***************************
-        # 最新一个新闻项为0，第二个为1
-        #***************************
-        latest = items[0]
+        news_list = []
+        for item in items:
+            news_url = item.get("url")
+            if news_url and news_url.startswith("/"):
+                news_url = CFG["minecraft_api"]["site_base"] + news_url
+            news_list.append({
+                "title": item.get("title"),
+                "author": item.get("author"),
+                "imageAltText": item.get("imageAltText"),
+                "description": item.get("description"),
+                "release_date": item.get("publishDate"),
+                "url": news_url
+            })
 
-        news_url = latest.get("url")
-        if news_url and news_url.startswith("/"):
-            news_url = CFG["minecraft_api"]["site_base"] + news_url
-
-        return {
-            "title": latest.get("title"),
-            "author": latest.get("author"),
-            "imageAltText": latest.get("imageAltText"),
-            "description": latest.get("description"),
-            "release_date": latest.get("publishDate"),
-            "url": news_url
-        }
+        return news_list
 
     except Exception as e:
         print("获取 API 新闻时出错:", e)
-        return None
+        return []
 
 
 def _normalize_whitespace(s: str) -> str:
@@ -339,14 +345,22 @@ def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
         source_text = (source_text or "").strip()
         if not source_text:
             return
-        block_id = f"b{len(blocks)+1:04d}"
-        blocks.append({
-            "id": block_id,
-            "type": block_type,
-            "source_text": source_text,
-            "translated_text": "",
-            "meta": meta or {}
-        })
+        # 新增：按换行拆分 block
+        lines = [l.strip() for l in source_text.split("\n") if l.strip()]
+
+        for line in lines:
+            line_content = line.strip()
+            if not line_content:
+                continue
+
+            block_id = f"b{len(blocks)+1:04d}"
+            blocks.append({
+                "id": block_id,
+                "type": block_type,
+                "source_text": line_content,
+                "translated_text": "",
+                "meta": meta or {}
+            })
 
     def add_img_block(src: str, alt: str = "", meta=None):
         src = (src or "").strip()
@@ -479,7 +493,7 @@ def parse_article_page(article_url):
         return None
 
 
-def _chunk_items_for_translation(items, max_chars=1000, max_items=5):
+def _chunk_items_for_translation(items, max_chars=1000, max_items=10):
     batches = []
     cur = []
     cur_len = 0
@@ -626,22 +640,52 @@ def check_for_updates(news_info):
 
 def main():
     print("开始通过 API 获取 Minecraft 最新新闻...\n")
-    news_info = get_latest_news_via_api()
-    if not news_info:
+    news_list = get_latest_news_via_api()
+
+    if not news_list:
         print("无法通过 API 获取新闻")
         return
 
-    print("API 获取到新闻 Meta:", news_info)
+    print(f"获取到 {len(news_list)} 条新闻，展示最新的 {CFG['minecraft_api']['pageSize']} 条：\n")
+    for i, news in enumerate(news_list):
+        print(f"{i+1}. {news['title']}")
 
-    if check_for_updates(news_info):
-        return
+    # 配置文件设置超时时间（0为不等待）
+    timeout = CFG.get("minecraft_api", {}).get("timeout", 0)
 
-    article_data = parse_article_page(news_info["url"])
+    if timeout == 0:
+        # 直接翻译最新的新闻
+        news_to_translate = news_list[0]
+        print(f"\n选择超时/timeout为0，自动翻译最新的新闻: {news_to_translate['title']}")
+    else:
+        # 等待用户输入
+        start_time = time.time()
+        user_choice = None
+        while time.time() - start_time < timeout:
+            choice = input(f"\n请输入要翻译的新闻编号（1-{len(news_list)}），或按回车跳过: ")
+            if choice.isdigit() and 1 <= int(choice) <= len(news_list):
+                user_choice = int(choice) - 1
+                break
+            elif choice == "":
+                print("跳过选择，自动翻译最新的新闻")
+                user_choice = 0
+                break
+            else:
+                print(f"无效的输入，请输入1到{len(news_list)}之间的数字")
+
+        if user_choice is None:
+            print(f"\n超时，自动翻译最新的新闻: {news_list[0]['title']}")
+            user_choice = 0
+
+        news_to_translate = news_list[user_choice]
+
+    # 继续执行翻译操作
+    article_data = parse_article_page(news_to_translate["url"])
     if not article_data:
         print("无法解析文章详情页")
         return
 
-    title_to_translate = article_data["title"] or news_info["title"]
+    title_to_translate = article_data["title"] or news_to_translate["title"]
     translated_title = translate_text(
         title_to_translate,
         system_prompt=CFG["prompts"]["translate_title_system"]
@@ -656,11 +700,11 @@ def main():
     full_data = {
         "title": title_to_translate,
         "translated_title": translated_title,
-        "release_date": article_data.get("release_date") or news_info.get("release_date", ""),
-        "url": news_info.get("url", ""),
-        "author": news_info.get("author", ""),
-        "imageAltText": news_info.get("imageAltText", ""),
-        "description": news_info.get("description", ""),
+        "release_date": article_data.get("release_date") or news_to_translate.get("release_date", ""),
+        "url": news_to_translate.get("url", ""),
+        "author": news_to_translate.get("author", ""),
+        "imageAltText": news_to_translate.get("imageAltText", ""),
+        "description": news_to_translate.get("description", ""),
         "blocks": blocks,
         "content": source_content,
         "translated_content": translated_content
