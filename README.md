@@ -5,8 +5,49 @@
 # JBAiGNN(Python)
 全称为JiuBookAiGetNewestNews  
 通过AI翻译Minecraft新闻，并导出成json  
-可在config文件配置翻译API  
-如无配置，则输出最新新闻，不做Ai翻译  
+可以通过双击START.BAT文件直接运行  
+
+有任何问题欢迎发issue讨论  
+
+关于如何使用Ai翻译：  
+打开config文件配置ai翻译的API、Key、Model  
+如无配置，则输出最新英文原新闻，不做Ai翻译  
+```
+  "openai_compat": {
+    "host": "www.任意API网站.com",  
+             ↑ 需要进行填写
+    "endpoint": "/v1/chat/completions",  
+             ↑ 无需修改，此处也可以进行对应后缀修改
+    "api_key_env": "OPENAI_API_KEY",  
+             ↑ 无需修改，为环境变量名，优先级低于下方填写的apikey
+    "api_key": "sk-在这里填你的Key",   
+             ↑ 需要进行填写，如此处留空，则使用环境变量
+    "model": "在这里填你的Model名字",   
+             ↑ 需要进行填写
+    "max_tokens": 10000,  
+             ↑ 无需修改，代码内_chunk_items_for_translation() 函数  
+             ↑ 限制了max_chars=1000, max_items=5
+    "timeout": 120 
+             ↑ 无需修改，代码默认timeout为120
+  },
+```
+
+关于如何使用代理服务器：  
+打开config文件后进行如下修改  
+```
+...
+  "http": {
+    "verify_ssl": false,
+    "user_agent": "...省略...",
+    "accept": "...省略...",
+	  "proxies": {
+      "http": "", 
+             ↑ 使用代理在此处填写‘http://127.0.0.1:7890’，留空为不使用代理
+      "https": "" 
+             ↑ 使用代理在此处填写‘http://127.0.0.1:7890’，留空为不使用代理
+    }
+...
+```
 
 # J2MM(HTML)
 全称为JsonToMcbbsMarkdown  
@@ -63,6 +104,7 @@ _Another step towards Vibrant Visuals_
 # 未来计划
 - ~~逐句人工校对修改~~ √ 已添加
 - ~~头尾自定义模块~~ √ 已添加
+- ~~代理服务器支持~~ √ 已添加
 - 图片爬取
 - Gui界面
 - 整合为单个程序
