@@ -63,7 +63,11 @@ DEFAULT_CONFIG = {
     "http": {
         "verify_ssl": False,
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+	    "proxies": {
+            "http": "",
+            "https": ""
+        }
     },
     "output": {
         "save_dir": "minecraft_news"
@@ -109,6 +113,11 @@ def load_config(config_path: str = None) -> dict:
 
 CFG = load_config()
 
+# 预处理代理：如果配置为空则设为 None，避免 requests 报错
+PROXIES = CFG["http"].get("proxies")
+if PROXIES and not any(PROXIES.values()):
+    PROXIES = None
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 HEADERS_HTML = {
@@ -123,7 +132,7 @@ HEADERS_HTML = {
 
 def get_base64_from_image(image_url):
     try:
-        resp = requests.get(image_url, timeout=120, verify=CFG["http"]["verify_ssl"])
+        resp = requests.get(image_url, timeout=120, verify=CFG["http"]["verify_ssl"], proxies=PROXIES)
         resp.raise_for_status()
         img_bytes = resp.content
         b64 = base64.b64encode(img_bytes).decode("utf-8")
@@ -193,7 +202,8 @@ def translate_text(text, system_prompt=None):
             json=payload,
             headers=headers,
             timeout=timeout,
-            verify=verify_ssl
+            verify=verify_ssl,
+            proxies=PROXIES
         )
         response.raise_for_status()  # 检查 HTTP 状态码
 
@@ -230,7 +240,8 @@ def get_latest_news_via_api():
     try:
         response = requests.get(
             api_url, params=params, headers=HEADERS_HTML,
-            timeout=120, verify=CFG["http"]["verify_ssl"]
+            timeout=120, verify=CFG["http"]["verify_ssl"],
+            proxies=PROXIES
         )
         print("API Response Code:", response.status_code)
         response.raise_for_status()
@@ -405,7 +416,8 @@ def parse_article_page(article_url):
     try:
         response = requests.get(
             article_url, headers=HEADERS_HTML, timeout=120,
-            verify=CFG["http"]["verify_ssl"]
+            verify=CFG["http"]["verify_ssl"],
+            proxies=PROXIES
         )
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
