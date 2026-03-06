@@ -96,9 +96,13 @@
   copyMarkdownBtn.addEventListener('click', () => copyToClipboard(markdownOutput.value, copyMarkdownBtn));
   copyBBCodeBtn.addEventListener('click', () => copyToClipboard(bbcodeOutput.value, copyBBCodeBtn));
 
-  // 实时预览：BBCode 输出框变更即刷新预览（修复“实时预览失效”）
+  // 实时预览：BBCode 输出框变更即刷新预览
   const updatePreviewDebounced = debounce(() => {
-    previewArea.innerHTML = bbcodeToHtml(bbcodeOutput.value || '');
+    try {
+      previewArea.innerHTML = bbcodeToHtml(bbcodeOutput.value || '');
+    } catch (err) {
+      previewArea.innerHTML = `<p style=”color: #e74c3c; padding: 20px;”>预览渲染错误: ${escapeHtml(err.message)}</p>`;
+    }
   }, 120);
   bbcodeOutput.addEventListener('input', updatePreviewDebounced);
 
@@ -566,16 +570,21 @@ function updateBlockFromUI(blockId) {
   function generateOutput() {
     if (!originalJson || !editedBlocks) return;
 
-    const bbcode = convertJsonToBBCode(originalJson, editedBlocks);
-    const markdown = convertJsonToMarkdown(originalJson, editedBlocks);
+    try {
+      const bbcode = convertJsonToBBCode(originalJson, editedBlocks);
+      const markdown = convertJsonToMarkdown(originalJson, editedBlocks);
 
-    bbcodeOutput.value = bbcode;
-    markdownOutput.value = markdown;
+      bbcodeOutput.value = bbcode;
+      markdownOutput.value = markdown;
 
-    // 预览永远以 BBCode 输出为准（且实时监听 bbcodeOutput 输入）
-    previewArea.innerHTML = bbcodeToHtml(bbcode);
+      // 预览永远以 BBCode 输出为准
+      previewArea.innerHTML = bbcodeToHtml(bbcode);
 
-    updateStatus('输出已更新', false);
+      updateStatus('输出已更新', false);
+    } catch (err) {
+      updateStatus(`生成输出时出错: ${err.message}`, true);
+      previewArea.innerHTML = `<p style="color: #e74c3c; padding: 20px;">生成预览时出错: ${escapeHtml(err.message)}</p>`;
+    }
   }
 
   function convertJsonToBBCode(json, blocks) {
@@ -599,7 +608,7 @@ function updateBlockFromUI(blockId) {
     if (desc) metaLines.push(`[b]简介：[/b][i]${escapeBB(desc)}[/i]`);
     if (metaLines.length) out += `[quote]${metaLines.join('\n')}[/quote]`;
 
-    out += `\n[hr]\n`;
+    out += `\n`;
 
     if (!blocks || !blocks.length) {
       out += `[i]（未找到 blocks 或 blocks 为空）[/i]`;
@@ -612,7 +621,8 @@ function updateBlockFromUI(blockId) {
       out += renderBlockBBCode(block) + '\n';
 
       const nextType = next ? String(next.type || 'p').toLowerCase() : '';
-      if (['h1','h2','h3','h4'].includes(nextType)) out += `\n[hr]\n`;
+      // 只在主要标题前添加分隔符
+      if (['h1','h2'].includes(nextType)) out += `\n[hr]\n`;
     }
 
     return insertModulesBBCode(out.trim());
@@ -655,8 +665,6 @@ function updateBlockFromUI(blockId) {
     if (desc) meta.push(`- 简介：${stripNewlines(desc)}`);
     if (meta.length) out += meta.join('\n') + `\n\n`;
 
-    out += `---\n\n`;
-
     if (!blocks || !blocks.length) return insertModulesMarkdown((out + `（未找到 blocks 或 blocks 为空）`).trim());
 
     for (let i = 0; i < blocks.length; i++) {
@@ -665,7 +673,8 @@ function updateBlockFromUI(blockId) {
       out += renderBlockMarkdown(block) + '\n\n';
 
       const nextType = next ? String(next.type || 'p').toLowerCase() : '';
-      if (['h1','h2','h3','h4'].includes(nextType)) out += `---\n\n`;
+      // 只在主要标题前添加分隔符
+      if (['h1','h2'].includes(nextType)) out += `---\n\n`;
     }
 
     return insertModulesMarkdown(out.trim());
@@ -705,6 +714,8 @@ function updateBlockFromUI(blockId) {
     const trBB  = mdLinksToBBCode(tr);
 
     const duo = (main, sub) => {
+      // 如果原文和译文相同，只输出一次
+      if (main && sub && main === sub) return main;
       if (main && sub) return `${main}\n[color=#bcbcbc]${sub}[/color]\n`;
       return main || sub || '';
     };
@@ -716,6 +727,8 @@ function updateBlockFromUI(blockId) {
       const li = items.map((item, i) => {
         const itemSrc = mdLinksToBBCode(normalizeText(item));
         const itemTr = mdLinksToBBCode(normalizeText(translatedItems[i] || ''));
+        // 如果原文和译文相同，只输出一次
+        if (itemTr && itemSrc === itemTr) return `[*]${escapeBB(itemSrc)}`;
         if (itemTr) return `[*]${escapeBB(itemTr)}\n[color=#bcbcbc]${escapeBB(itemSrc)}[/color]`;
         return `[*]${escapeBB(itemSrc)}`;
       }).join('\n');
@@ -744,6 +757,8 @@ function updateBlockFromUI(blockId) {
     const tr = normalizeText(block.translated_text || '');
 
     const duo = (main, sub) => {
+      // 如果原文和译文相同，只输出一次
+      if (main && sub && main === sub) return main;
       if (main && sub) return `${main}\n\n> ${sub.replace(/\n/g, '\n> ')}`;
       return main || (sub ? `> ${sub.replace(/\n/g, '\n> ')}` : '');
     };
@@ -756,19 +771,23 @@ function updateBlockFromUI(blockId) {
       return items.map((it, i) => {
         const itemSrc = normalizeText(it);
         const itemTr = normalizeText(translatedItems[i] || '');
+        // 如果原文和译文相同，只输出一次
+        if (itemTr && itemSrc === itemTr) return ordered ? `${i+1}. ${itemSrc}` : `- ${itemSrc}`;
         if (itemTr) return ordered ? `${i+1}. ${itemTr}\n   > ${itemSrc}` : `- ${itemTr}\n  > ${itemSrc}`;
         return ordered ? `${i+1}. ${itemSrc}` : `- ${itemSrc}`;
       }).join('\n');
     }
 
-    if (type === 'h1') return `# ${stripNewlines(tr || src)}${(src && tr) ? `\n\n> ${stripNewlines(src)}` : ''}`.trim();
-    if (type === 'h2') return `## ${stripNewlines(tr || src)}${(src && tr) ? `\n\n> ${stripNewlines(src)}` : ''}`.trim();
-    if (type === 'h3') return `### ${stripNewlines(tr || src)}${(src && tr) ? `\n\n> ${stripNewlines(src)}` : ''}`.trim();
-    if (type === 'h4') return `#### ${stripNewlines(tr || src)}${(src && tr) ? `\n\n> ${stripNewlines(src)}` : ''}`.trim();
+    if (type === 'h1') return `# ${stripNewlines(tr || src)}${(src && tr && src !== tr) ? `\n\n> ${stripNewlines(src)}` : ''}`.trim();
+    if (type === 'h2') return `## ${stripNewlines(tr || src)}${(src && tr && src !== tr) ? `\n\n> ${stripNewlines(src)}` : ''}`.trim();
+    if (type === 'h3') return `### ${stripNewlines(tr || src)}${(src && tr && src !== tr) ? `\n\n> ${stripNewlines(src)}` : ''}`.trim();
+    if (type === 'h4') return `#### ${stripNewlines(tr || src)}${(src && tr && src !== tr) ? `\n\n> ${stripNewlines(src)}` : ''}`.trim();
 
     if (type === 'blockquote' || type === 'quote') {
       const a = tr ? tr.replace(/\n/g, '\n> ') : '';
       const b = src ? src.replace(/\n/g, '\n> ') : '';
+      // 如果原文和译文相同，只输出一次
+      if (a && b && a === b) return `> ${a}`.trim();
       if (a && b) return `> ${a}\n>\n> ${b}`.trim();
       return (a || b) ? `> ${(a || b)}`.trim() : '';
     }
