@@ -97,7 +97,10 @@
         <div class="output-box full">
           <div class="box-header">
             <span>实时预览（BBCode 近似渲染）</span>
-            <i class="fas fa-eye icon"></i>
+            <div class="header-actions">
+              <button class="copy-btn" id="refreshPreviewBtn" title="刷新预览">刷新</button>
+              <i class="fas fa-eye icon"></i>
+            </div>
           </div>
           <div class="box-content">
             <div id="previewArea" class="preview-content">
@@ -111,8 +114,8 @@
       <div class="section example-section">
         <h3><i class="fas fa-info-circle"></i> 示例 JSON 结构（关键字段）</h3>
         <p>转换器将优先使用 <span class="highlight">blocks</span>。每个 block 推荐同时提供 source_text 与 translated_text：</p>
-        <div class="example-json" style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 0.9rem; overflow: auto; max-height: 240px;">
-<pre>{
+        <div class="example-json">
+          <pre>{
   "title": "Another step towards Vibrant Visuals",
   "translated_title": "迈向 Vibrant Visuals 的又一步",
   "release_date": "2026-02-18T15:00:34Z",

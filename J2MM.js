@@ -71,6 +71,7 @@
 
   const copyMarkdownBtn = $('copyMarkdownBtn');
   const copyBBCodeBtn = $('copyBBCodeBtn');
+  const refreshPreviewBtn = $('refreshPreviewBtn');
 
   // ----------------------------
   // 初始化
@@ -95,6 +96,26 @@
 
   copyMarkdownBtn.addEventListener('click', () => copyToClipboard(markdownOutput.value, copyMarkdownBtn));
   copyBBCodeBtn.addEventListener('click', () => copyToClipboard(bbcodeOutput.value, copyBBCodeBtn));
+  refreshPreviewBtn.addEventListener('click', () => {
+    previewArea.innerHTML = bbcodeToHtml(bbcodeOutput.value || '');
+    updateStatus('预览已刷新', false);
+  });
+
+  // 默认模块管理事件（使用事件委托）
+  defaultModulesContainer.addEventListener('change', (e) => {
+    const el = e.target;
+    const id = el.dataset.mid;
+    const field = el.dataset.field;
+    if (!id || !field) return;
+
+    const mod = defaultModulesConfig.find(x => x.id === id);
+    if (!mod) return;
+
+    if (field === 'enabled') mod.enabled = !!el.checked;
+    if (field === 'position') mod.position = String(el.value);
+
+    generateOutput();
+  });
 
   // 实时预览：BBCode 输出框变更即刷新预览
   const updatePreviewDebounced = debounce(() => {
@@ -195,6 +216,14 @@
   // ----------------------------
   // 翻译校对面板
   // ----------------------------
+  /**
+   * 渲染翻译面板：将编辑后的块渲染为可交互的UI元素
+   * 功能：
+   * - 为每个块创建可展开/折叠的编辑区域
+   * - 支持列表类型(ul/ol)和普通文本类型的不同编辑界面
+   * - 提供保存、上移、下移、删除等操作按钮
+   * - 支持点击类型标签修改块类型
+   */
   function renderTranslationPanel() {
     translationPanel.innerHTML = '';
     if (!editedBlocks) return;
@@ -205,8 +234,34 @@
       div.dataset.blockId = block.id;
 
       const typeLabel = String(block.type || 'p');
-      const previewText = (block.source_text ? String(block.source_text) :
-                          (block.items ? (block.items.join(', ')) : '')).slice(0, 80);
+
+      // 构建预览文本：中文在上，英文在下（双行模式）
+      let previewHtml = '';
+      if (typeLabel === 'ul' || typeLabel === 'ol') {
+        const translatedItems = Array.isArray(block.translated_items) ? block.translated_items : [];
+        const items = Array.isArray(block.items) ? block.items : [];
+        const translatedText = translatedItems.join(', ').slice(0, 80);
+        const sourceText = items.join(', ').slice(0, 80);
+
+        if (translatedText && sourceText && translatedText !== sourceText) {
+          previewHtml = `<span class="preview-translated">${escapeHtml(translatedText)}</span><span class="preview-source">${escapeHtml(sourceText)}</span>`;
+        } else if (translatedText) {
+          previewHtml = `<span class="preview-translated">${escapeHtml(translatedText)}</span>`;
+        } else if (sourceText) {
+          previewHtml = `<span class="preview-source">${escapeHtml(sourceText)}</span>`;
+        }
+      } else {
+        const translated = String(block.translated_text || '').trim().slice(0, 80);
+        const source = String(block.source_text || '').trim().slice(0, 80);
+
+        if (translated && source && translated !== source) {
+          previewHtml = `<span class="preview-translated">${escapeHtml(translated)}</span><span class="preview-source">${escapeHtml(source)}</span>`;
+        } else if (translated) {
+          previewHtml = `<span class="preview-translated">${escapeHtml(translated)}</span>`;
+        } else if (source) {
+          previewHtml = `<span class="preview-source">${escapeHtml(source)}</span>`;
+        }
+      }
 
       let editorHtml = '';
       if (typeLabel === 'ul' || typeLabel === 'ol') {
@@ -243,7 +298,7 @@
           <span>Block ${index + 1} <span class="block-type" title="点击修改类型">${escapeHtml(typeLabel)}</span></span>
           <span style="font-size: 0.85rem; color: #888;">ID: ${escapeHtml(block.id)}</span>
         </div>
-        <div class="block-content-preview">${escapeHtml(previewText || '')}</div>
+        <div class="block-content-preview">${previewHtml || ''}</div>
         <div class="block-edit-area-wrapper" style="display:none;">
           ${editorHtml}
           <div class="block-actions">
@@ -322,7 +377,12 @@
     });
   }
 
-  
+
+  /**
+   * 规范化行：将文本按行分割，去除空行和首尾空白
+   * @param {string} t - 输入文本
+   * @returns {string[]} 规范化后的行数组
+   */
   function normalizeLines(t) {
     return String(t || '')
       .replace(/\r\n/g, '\n')
@@ -331,6 +391,12 @@
       .filter(Boolean);
   }
 
+  /**
+   * 设置块的类型：修改块的type属性并重新渲染
+   * 支持类型转换：文本类型 <-> 列表类型(ul/ol)
+   * @param {string} blockId - 块ID
+   * @param {string} newType - 新类型(p/h1/h2/h3/h4/blockquote/ul/ol/code/img)
+   */
   function setBlockType(blockId, newType) {
     if (!editedBlocks) return;
     const block = editedBlocks.find(b => b.id === blockId);
@@ -367,7 +433,11 @@
     updateStatus('已修改 block 类型', false);
   }
 
-function updateBlockFromUI(blockId) {
+  /**
+   * 从UI更新块数据：将用户在界面中的编辑保存到块对象
+   * @param {string} blockId - 块ID
+   */
+  function updateBlockFromUI(blockId) {
     const block = editedBlocks.find(b => b.id === blockId);
     if (!block) return;
 
@@ -391,6 +461,11 @@ function updateBlockFromUI(blockId) {
     generateOutput();
   }
 
+  /**
+   * 移动块：在列表中上移或下移块的位置
+   * @param {string} blockId - 块ID
+   * @param {number} direction - 移动方向(-1:上移, 1:下移)
+   */
   function moveBlock(blockId, direction) {
     const idx = editedBlocks.findIndex(b => b.id === blockId);
     if (idx < 0) return;
@@ -403,6 +478,10 @@ function updateBlockFromUI(blockId) {
     generateOutput();
   }
 
+  /**
+   * 删除块：从列表中移除指定块
+   * @param {string} blockId - 块ID
+   */
   function removeBlock(blockId) {
     if (!confirm('确定要删除这个 block 吗？')) return;
     editedBlocks = editedBlocks.filter(b => b.id !== blockId);
@@ -410,6 +489,9 @@ function updateBlockFromUI(blockId) {
     generateOutput();
   }
 
+  /**
+   * 重置编辑：恢复到原始JSON数据
+   */
   function resetEdits() {
     if (!originalJson) return;
     editedBlocks = deepClone(originalJson.blocks);
@@ -440,21 +522,6 @@ function updateBlockFromUI(blockId) {
       `;
       defaultModulesContainer.appendChild(div);
     });
-
-    defaultModulesContainer.addEventListener('change', (e) => {
-      const el = e.target;
-      const id = el.dataset.mid;
-      const field = el.dataset.field;
-      if (!id || !field) return;
-
-      const mod = defaultModulesConfig.find(x => x.id === id);
-      if (!mod) return;
-
-      if (field === 'enabled') mod.enabled = !!el.checked;
-      if (field === 'position') mod.position = String(el.value);
-
-      generateOutput();
-    }, { once: true }); // 只绑一次，避免重复绑定
   }
 
   function renderCustomModules() {
@@ -565,8 +632,12 @@ function updateBlockFromUI(blockId) {
   }
 
   // ----------------------------
-  // 输出生成
+  // 输出生成：实时生成BBCode和Markdown输出
   // ----------------------------
+  /**
+   * 生成输出：将编辑后的块转换为BBCode和Markdown格式
+   * 同时更新预览区域（使用BBCode转HTML）
+   */
   function generateOutput() {
     if (!originalJson || !editedBlocks) return;
 
@@ -587,6 +658,12 @@ function updateBlockFromUI(blockId) {
     }
   }
 
+  /**
+   * 将JSON数据转换为BBCode格式
+   * @param {Object} json - 原始JSON数据（包含标题、作者等元信息）
+   * @param {Array} blocks - 编辑后的块数组
+   * @returns {string} BBCode格式的完整文本
+   */
   function convertJsonToBBCode(json, blocks) {
     const title = String((json.translated_title || json.title || '')).trim();
     const enTitle = String((json.title || '')).trim();
@@ -628,6 +705,11 @@ function updateBlockFromUI(blockId) {
     return insertModulesBBCode(out.trim());
   }
 
+  /**
+   * 插入模块到BBCode内容：在主内容前后插入启用的模块
+   * @param {string} mainBB - 主BBCode内容
+   * @returns {string} 插入模块后的完整BBCode
+   */
   function insertModulesBBCode(mainBB) {
     const modules = collectEnabledModules().map(m => ({
       position: m.position,
@@ -644,6 +726,12 @@ function updateBlockFromUI(blockId) {
     return final.trim();
   }
 
+  /**
+   * 将JSON数据转换为Markdown格式
+   * @param {Object} json - 原始JSON数据（包含标题、作者等元信息）
+   * @param {Array} blocks - 编辑后的块数组
+   * @returns {string} Markdown格式的完整文本
+   */
   function convertJsonToMarkdown(json, blocks) {
     const title = String((json.translated_title || json.title || '')).trim();
     const enTitle = String((json.title || '')).trim();
@@ -680,6 +768,11 @@ function updateBlockFromUI(blockId) {
     return insertModulesMarkdown(out.trim());
   }
 
+  /**
+   * 插入模块到Markdown内容：在主内容前后插入启用的模块
+   * @param {string} mainMd - 主Markdown内容
+   * @returns {string} 插入模块后的完整Markdown
+   */
   function insertModulesMarkdown(mainMd) {
     const modules = collectEnabledModules().map(m => ({
       position: m.position,
@@ -810,42 +903,67 @@ function updateBlockFromUI(blockId) {
   // ----------------------------
   // 模块内容：自动识别 + 转换，避免混杂
   // ----------------------------
+  /**
+   * 清理文本并转换为BBCode格式
+   * 如果文本包含Markdown标记，则转换为BBCode；否则保持原样
+   * @param {string} text - 输入文本
+   * @returns {string} BBCode格式的文本
+   */
   function sanitizeForBBCode(text) {
     const t = normalizeTextKeepLines(text);
     if (!t) return '';
-    // 若包含 Markdown 特征，先转 BBCode
-    let out = looksLikeMarkdown(t) ? markdownToBBCode(t) : t;
-    // 再做一次“兜底清理”：把残留 markdown 链接/图片/代码等转掉
-    out = markdownToBBCode(out);
+    // 检测并转换Markdown标记
+    const out = looksLikeMarkdown(t) ? markdownToBBCode(t) : t;
     return out.trim();
   }
 
+  /**
+   * 清理文本并转换为Markdown格式
+   * 如果文本包含BBCode标记，则转换为Markdown；否则保持原样
+   * @param {string} text - 输入文本
+   * @returns {string} Markdown格式的文本
+   */
   function sanitizeForMarkdown(text) {
     const t = normalizeTextKeepLines(text);
     if (!t) return '';
-    // 若包含 BBCode 特征，先转 Markdown
-    let out = looksLikeBBCode(t) ? bbcodeToMarkdown(t) : t;
-    // 再做一次兜底：避免残留 BBCode
-    out = bbcodeToMarkdown(out);
+    // 检测并转换BBCode标记
+    const out = looksLikeBBCode(t) ? bbcodeToMarkdown(t) : t;
     return out.trim();
   }
 
+  /**
+   * 检测文本是否包含BBCode标记
+   * @param {string} t - 输入文本
+   * @returns {boolean} 是否包含BBCode标记
+   */
   function looksLikeBBCode(t) {
     return /\[(\/?)(b|i|u|s|url|img|quote|code|size|color|align|hr|ul|ol|\*)/i.test(t);
   }
 
+  /**
+   * 检测文本是否包含Markdown标记
+   * 检测项：标题(#)、粗体(**)、引用(>)、链接、图片、代码块(```)、列表(-/*)
+   * @param {string} t - 输入文本
+   * @returns {boolean} 是否包含Markdown标记
+   */
   function looksLikeMarkdown(t) {
-    return /(^\s{0,3}#{1,6}\s+)|(\*\*[^*]+\*\*)|(^\s*>\s+)|(\[[^\]]+\]\([^)]+\))|(!\[[^\]]*\]\([^)]+\))|(^\s*```)|(^\s*[-*]\s+)/m.test(t);
+    return /(^\s{0,3}#{1,6}\s+)|(\*\*[^*]+\*\*)|(^\s*>\s+)|(\[[^\]]+\]\([^)]+\))|(!\\[[^\]]*\]\([^)]+\))|(^\s*```)|(^\s*[-*]\s+)/m.test(t);
   }
 
   // ----------------------------
-  // Markdown -> BBCode（模块用：够用且安全）
+  // Markdown -> BBCode 转换器
   // ----------------------------
+  /**
+   * 将Markdown格式转换为BBCode格式
+   * 支持：代码块、标题、图片、链接、粗体/斜体/删除线、行内代码、水平线、引用、列表
+   * @param {string} md - Markdown格式文本
+   * @returns {string} BBCode格式文本
+   */
   function markdownToBBCode(md) {
     if (!md) return '';
     let s = String(md);
 
-    // 代码块 ``` ```
+    // 代码块：```code``` -> [code]code[/code]
     s = s.replace(/```([\s\S]*?)```/g, (_, code) => `[code]${code.trim()}[/code]`);
 
     // 标题
@@ -861,7 +979,7 @@ function updateBlockFromUI(blockId) {
     s = s.replace(/\[([^\]]+)]\((https?:\/\/[^)]+)\)/g, '[url=$2]$1[/url]');
 
     // 加粗/斜体/删除线（顺序很关键：先粗体再斜体）
-    s = s.replace(/\*\*([\s\S]+?)\*\*/g, '[b]$1[/b]');
+    // 文本样式（处理顺序：粗体 -> 斜体 -> 删除线）
     s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1[i]$2[/i]');
     s = s.replace(/~~([\s\S]+?)~~/g, '[s]$1[/s]');
 
@@ -887,7 +1005,7 @@ function updateBlockFromUI(blockId) {
       return items ? `[ul]\n${items}\n[/ul]` : m;
     });
 
-    // 有序列表：1. 2.
+    // 有序列表：1. 2. 等数字开头的行
     s = s.replace(/(^\s*\d+\.\s+.+(?:\n\s*\d+\.\s+.+)*)/gm, (m) => {
       const items = m.split('\n')
         .map(line => line.replace(/^\s*\d+\.\s+/, '').trim())
@@ -901,8 +1019,14 @@ function updateBlockFromUI(blockId) {
   }
 
   // ----------------------------
-  // BBCode -> Markdown（模块用：够用且安全）
+  // BBCode -> Markdown 转换器
   // ----------------------------
+  /**
+   * 将BBCode格式转换为Markdown格式
+   * 支持：代码块、图片、链接、文本样式、引用、水平线、对齐/颜色、尺寸、列表
+   * @param {string} bb - BBCode格式文本
+   * @returns {string} Markdown格式文本
+   */
   function bbcodeToMarkdown(bb) {
     if (!bb) return '';
     let s = String(bb);
@@ -977,6 +1101,9 @@ function updateBlockFromUI(blockId) {
     // 先转义，避免 XSS
     let html = escapeHtml(input);
 
+    // 先处理 align，避免被内层标签破坏
+    html = html.replace(/\[align=center]([\s\S]*?)\[\/align]/gi, '<div style="text-align:center">$1</div>');
+
     // 标题 size + b（先处理）
     html = html.replace(/\[size=(\d+)]\s*\[b]([\s\S]*?)\[\/b]\s*\[\/size]/gi, (_, s, t) => {
       const n = parseInt(s, 10);
@@ -984,12 +1111,22 @@ function updateBlockFromUI(blockId) {
       if (n >= 7) return `<h1>${text}</h1>`;
       if (n === 6) return `<h2>${text}</h2>`;
       if (n === 5) return `<h3>${text}</h3>`;
-      if (n === 4) return `<strong>${text}</strong>`;
+      if (n === 4) return `<strong style="font-size:1.2em">${text}</strong>`;
       return `<strong>${text}</strong>`;
     });
 
-    // align
-    html = html.replace(/\[align=center]([\s\S]*?)\[\/align]/gi, '<div style="text-align:center">$1</div>');
+    // 单独的 size 标签（不带 b）
+    html = html.replace(/\[size=(\d+)]([\s\S]*?)\[\/size]/gi, (_, s, t) => {
+      const n = parseInt(s, 10);
+      const text = t.trim();
+      if (n >= 7) return `<span style="font-size:2em">${text}</span>`;
+      if (n === 6) return `<span style="font-size:1.5em">${text}</span>`;
+      if (n === 5) return `<span style="font-size:1.3em">${text}</span>`;
+      if (n === 4) return `<span style="font-size:1.2em">${text}</span>`;
+      if (n === 3) return `<span style="font-size:1em">${text}</span>`;
+      if (n === 2) return `<span style="font-size:0.9em">${text}</span>`;
+      return `<span style="font-size:0.8em">${text}</span>`;
+    });
 
     // b/i/u/s
     html = html.replace(/\[b]([\s\S]*?)\[\/b]/gi, '<strong>$1</strong>');
@@ -1020,9 +1157,13 @@ function updateBlockFromUI(blockId) {
     // 换行：保留视觉效果（注意 code/pre 内也会有 <br>，但不影响预览）
     html = html.replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
 
-    // 简单清理：ul/ol 内不应出现 <br>（避免空行影响）
+    // 简单清理：ul/ol 内只删除 li 标签之间的 <br>，保留 li 内部的 <br>
     html = html.replace(/<(ul|ol)>([\s\S]*?)<\/\1>/gi, (m, tag, inner) => {
-      const cleaned = inner.replace(/<br\s*\/?>/gi, '');
+      // 只删除 </li> 和 <li> 之间的 <br>，以及开头和结尾的 <br>
+      const cleaned = inner
+        .replace(/^(<br\s*\/?>)+/gi, '')  // 删除开头的 <br>
+        .replace(/(<br\s*\/?>)+$/gi, '')  // 删除结尾的 <br>
+        .replace(/(<\/li>)(<br\s*\/?>)+(<li>)/gi, '$1$3');  // 删除 li 之间的 <br>
       return `<${tag}>${cleaned}</${tag}>`;
     });
 
@@ -1039,29 +1180,56 @@ function updateBlockFromUI(blockId) {
     return d.toLocaleString('zh-CN', { hour12: false });
   }
 
+  /**
+   * 规范化文本：统一换行符并去除首尾空白
+   * @param {string} t - 输入文本
+   * @returns {string} 规范化后的文本
+   */
   function normalizeText(t) {
     return String(t || '').replace(/\r\n/g, '\n').trim();
   }
 
+  /**
+   * 规范化文本并保留行结构：统一换行符，去除首尾空白，但保留内部换行
+   * @param {string} t - 输入文本
+   * @returns {string} 规范化后的文本
+   */
   function normalizeTextKeepLines(t) {
-    // 保留行结构但去掉首尾空白
-    const s = String(t || '').replace(/\r\n/g, '\n');
-    return s.trim();
+    return String(t || '').replace(/\r\n/g, '\n').trim();
   }
 
+  /**
+   * 移除所有换行符：将所有空白字符（包括换行）压缩为单个空格
+   * @param {string} t - 输入文本
+   * @returns {string} 单行文本
+   */
   function stripNewlines(t) {
     return String(t || '').replace(/\s+/g, ' ').trim();
   }
 
+  /**
+   * Markdown链接转BBCode链接
+   * @param {string} text - 包含Markdown链接的文本
+   * @returns {string} 转换后的BBCode格式文本
+   */
   function mdLinksToBBCode(text) {
-    // 仅处理 markdown 链接，避免正文中残留
     return String(text || '').replace(/\[([^\]]+)]\((https?:\/\/[^\s)]+)\)/g, '[url=$2]$1[/url]');
   }
 
+  /**
+   * BBCode文本清理：移除空字符
+   * @param {string} text - 输入文本
+   * @returns {string} 清理后的文本
+   */
   function escapeBB(text) {
     return String(text || '').replace(/\u0000/g, '');
   }
 
+  /**
+   * HTML转义：转义HTML特殊字符以防止XSS
+   * @param {string} str - 输入字符串
+   * @returns {string} 转义后的字符串
+   */
   function escapeHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')
@@ -1069,6 +1237,11 @@ function updateBlockFromUI(blockId) {
       .replace(/>/g, '&gt;');
   }
 
+  /**
+   * HTML属性转义：转义HTML属性中的特殊字符
+   * @param {string} str - 输入字符串
+   * @returns {string} 转义后的字符串
+   */
   function escapeAttr(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')
