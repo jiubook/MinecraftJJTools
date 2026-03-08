@@ -1,8 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-Refactor notes:
-- 可配置项已抽离到 config.json（默认同目录）。每次运行会自动读取。
-- 支持用环境变量覆盖 API Key（默认读取 OPENAI_API_KEY；可在 config.json 中改 api_key_env）。
+Minecraft 新闻翻译工具
+
+功能：
+    - 从 Minecraft 官方网站获取最新新闻
+    - 解析文章页面，提取结构化内容
+    - 调用 AI 翻译 API 进行中文翻译
+    - 保存为 JSON 格式
+
+配置：
+    - 所有配置项已抽离到 config.json（默认位于脚本同目录）
+    - 支持通过环境变量覆盖 API Key
+    - 详细配置说明请参考 config.json
+
+使用方法：
+    python JBAiGNN_JiuBookAiGetNewestNews.py
+
+作者：JiuBook AI
+版本：008
 """
 
 import http.client
@@ -12,29 +27,35 @@ import os
 from datetime import datetime
 import re
 import urllib3
-import base64
 import hashlib
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup, NavigableString, Tag
 import time
-import threading
+
+# 禁用 SSL 警告（如果配置中关闭了 SSL 验证）
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-# -----------------------------
-# Config
-# -----------------------------
+# =============================================================================
+# 默认配置
+# =============================================================================
+# 如果 config.json 不存在或某些配置项缺失，将使用以下默认值
 
 DEFAULT_CONFIG = {
+    # OpenAI 兼容 API 配置
     "openai_compat": {
-        "host": "www.任意API网站.com",
-        "endpoint": "/v1/chat/completions",
-        "api_key_env": "OPENAI_API_KEY",
-        "api_key": "",
-        "model": "*******这里填写你要调用的Model名字******",
-        "max_tokens": 10000,
-        "timeout": 120
+        "host": "www.任意API网站.com",           # API 主机地址（不含 https://）
+        "endpoint": "/v1/chat/completions",     # API 端点路径
+        "api_key_env": "OPENAI_API_KEY",        # 环境变量名（用于读取 API Key）
+        "api_key": "",                          # API 密钥（环境变量优先）
+        "model": "*******这里填写你要调用的Model名字******",  # 模型名称
+        "max_tokens": 10000,                    # 最大生成 token 数
+        "timeout": 120                          # 请求超时时间（秒）
     },
+
+    # 翻译提示词配置
     "prompts": {
+        # 默认翻译提示词
         "translate_text_default": (
             "你是专业的 Minecraft 游戏翻译。请将下面文本翻译成简体中文。\n"
             "翻译规则（非常重要）：\n"
@@ -45,6 +66,7 @@ DEFAULT_CONFIG = {
             "- 如包含 Markdown 链接 [text](url)，请只翻译 visible text\n"
             "- 仅输出译文，不要解释"
         ),
+        # 批量翻译提示词
         "translate_blocks_system": (
             "你是 Minecraft 官方更新日志翻译专家，请把用户提供的 JSON 数组逐条翻译成简体中文。保持游戏特有的语气，专业且简洁。\n"
             "翻译规则（非常重要）：\n"
@@ -57,114 +79,169 @@ DEFAULT_CONFIG = {
             "4. 保留 URL / MC-编号 / 代码\n"
             "5. 保留换行\n"
         ),
+        # 标题翻译提示词
         "translate_title_system": (
             "请将 Minecraft 新闻标题翻译成简体中文。要求：保留版本号/编号/专有名词的拼写，不要添加额外解释，只输出译文标题。"
         )
     },
+
+    # Minecraft API 配置
     "minecraft_api": {
         "search_url": "https://net-secondary.web.minecraft-services.net/api/v1.0/zh-cn/search",
-        "pageSize": 3,
-        "sortType": "Recent",
-        "category": "News",
-        "site_base": "https://www.minecraft.net"
+        "pageSize": 3,                          # 获取的新闻数量
+        "sortType": "Recent",                   # 排序方式
+        "category": "News",                     # 分类
+        "site_base": "https://www.minecraft.net"  # 网站基础 URL
     },
+
+    # HTTP 请求配置
     "http": {
-        "verify_ssl": False,
+        "verify_ssl": False,                    # 是否验证 SSL 证书
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-	    "proxies": {
-            "http": "",
-            "https": ""
+        "proxies": {
+            "http": "",                         # HTTP 代理（留空表示不使用）
+            "https": ""                         # HTTPS 代理（留空表示不使用）
         }
     },
+
+    # 输出配置
     "output": {
-        "save_dir": "minecraft_news"
+        "save_dir": "minecraft_news"            # 保存目录
     }
 }
 
 
 def _deep_merge(a: dict, b: dict) -> dict:
-    """Return merged dict (a <- b)."""
-    out = dict(a)
-    for k, v in (b or {}).items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = _deep_merge(out[k], v)
+    """
+    深度合并两个字典
+
+    将字典 b 的内容合并到字典 a 中。对于嵌套的字典，会递归合并；
+    对于其他类型的值，b 中的值会覆盖 a 中的值。
+
+    Args:
+        a: 基础字典
+        b: 要合并的字典，其值会覆盖 a 中的同名键
+
+    Returns:
+        合并后的新字典（不修改原字典）
+    """
+    if not b:
+        return dict(a)
+
+    result = dict(a)
+    for key, value in b.items():
+        # 如果两边都是字典，递归合并
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge(result[key], value)
         else:
-            out[k] = v
-    return out
+            # 否则直接覆盖
+            result[key] = value
+    return result
 
 
 def load_config(config_path: str = None) -> dict:
     """
-    读取 config.json。默认路径：脚本同目录/config.json。
-    """
-    if config_path is None:
-        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+    加载配置文件
 
-    cfg = dict(DEFAULT_CONFIG)
+    从 JSON 文件中读取配置，并与默认配置合并。
+    支持通过环境变量覆盖 API Key。
+
+    Args:
+        config_path: 配置文件路径，默认为脚本同目录下的 config.json
+
+    Returns:
+        合并后的配置字典
+
+    配置优先级：
+        1. 环境变量中的 API Key（最高优先级）
+        2. config.json 中的配置
+        3. DEFAULT_CONFIG 中的默认配置（最低优先级）
+    """
+    # 确定配置文件路径
+    if config_path is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(script_dir, "config.json")
+
+    # 从默认配置开始
+    config = dict(DEFAULT_CONFIG)
+
+    # 尝试加载用户配置文件
     if os.path.exists(config_path):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
-                user_cfg = json.load(f)
-            cfg = _deep_merge(cfg, user_cfg)
-        except Exception as e:
-            print(f"[Config] 读取失败，将使用默认配置：{config_path} -> {e}")
+                user_config = json.load(f)
+            config = _deep_merge(config, user_config)
+            print(f"[配置] 已加载配置文件: {config_path}")
+        except json.JSONDecodeError as e:
+            print(f"[配置] JSON 解析失败，使用默认配置: {config_path} -> {e}")
+        except IOError as e:
+            print(f"[配置] 文件读取失败，使用默认配置: {config_path} -> {e}")
+    else:
+        print(f"[配置] 配置文件不存在，使用默认配置: {config_path}")
 
-    # API Key：环境变量优先，其次 config.json 的 api_key
-    env_name = cfg.get("openai_compat", {}).get("api_key_env", "OPENAI_API_KEY")
-    env_key = os.getenv(env_name) if env_name else None
-    if env_key:
-        cfg["openai_compat"]["api_key"] = env_key
+    # 环境变量覆盖 API Key（优先级最高）
+    env_var_name = config.get("openai_compat", {}).get("api_key_env", "OPENAI_API_KEY")
+    if env_var_name:
+        env_api_key = os.getenv(env_var_name)
+        if env_api_key:
+            config["openai_compat"]["api_key"] = env_api_key
+            print(f"[配置] 已从环境变量 {env_var_name} 读取 API Key")
 
-    return cfg
+    return config
 
 
+# =============================================================================
+# 配置加载和初始化
+# =============================================================================
+
+# 加载配置文件
 CFG = load_config()
 
-# 预处理代理：如果配置为空则设为 None，避免 requests 报错
+# 处理代理配置：如果所有代理值都为空，则设为 None
 PROXIES = CFG["http"].get("proxies")
 if PROXIES and not any(PROXIES.values()):
     PROXIES = None
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
+# 构建 HTML 请求头
 HEADERS_HTML = {
     "User-Agent": CFG["http"]["user_agent"],
     "Accept": CFG["http"]["accept"]
 }
 
 
-# -----------------------------
-# Utils
-# -----------------------------
+# =============================================================================
+# 工具函数
+# =============================================================================
 
-def get_base64_from_image(image_url):
-    try:
-        resp = requests.get(image_url, timeout=120, verify=CFG["http"]["verify_ssl"], proxies=PROXIES)
-        resp.raise_for_status()
-        img_bytes = resp.content
-        b64 = base64.b64encode(img_bytes).decode("utf-8")
-        ext = image_url.split('.')[-1].lower()
-        mime = "jpeg" if ext in ["jpg", "jpeg"] else ext
-        return f"data:image/{mime};base64,{b64}"
-    except Exception as e:
-        print(f"[图片 Base64 转换失败] {image_url} -> {e}")
-        return None
-
-
-# -----------------------------
-# OpenAI-compatible translate
-# -----------------------------
+# =============================================================================
+# 翻译功能
+# =============================================================================
 
 def translate_text(text, system_prompt=None):
     """
-    调用兼容 OpenAI Chat Completions 接口的翻译函数（通过 config.json 配置）。
-    返回：译文字符串（message.content）
-    """
-    print(f"正在翻译{text}")
-    print(f"运行时超时设置: {CFG['openai_compat']['timeout']}")
-    system_prompt = system_prompt or CFG["prompts"]["translate_text_default"]
+    调用 OpenAI 兼容的 API 进行文本翻译
 
+    通过配置文件中指定的 API 端点进行翻译。
+    支持任何兼容 OpenAI Chat Completions 格式的 API。
+
+    Args:
+        text: 待翻译的文本
+        system_prompt: 系统提示词，默认使用配置文件中的翻译提示词
+
+    Returns:
+        str: 翻译后的文本，失败时返回 None
+
+    配置要求：
+        - openai_compat.host: API 主机地址
+        - openai_compat.endpoint: API 端点路径
+        - openai_compat.api_key: API 密钥
+        - openai_compat.model: 模型名称
+    """
+    print(f"[翻译] 正在翻译: {text[:50]}...")
+
+    # 获取配置
+    system_prompt = system_prompt or CFG["prompts"]["translate_text_default"]
     host = CFG["openai_compat"]["host"]
     endpoint = CFG["openai_compat"]["endpoint"]
     api_key = CFG["openai_compat"]["api_key"]
@@ -173,27 +250,30 @@ def translate_text(text, system_prompt=None):
     timeout = int(CFG["openai_compat"].get("timeout", 120))
     verify_ssl = CFG["http"]["verify_ssl"]
 
+    # 验证必要的配置项
     if not api_key or "********" in api_key:
-        print("[Translate] 未配置 API Key。请在 config.json 填写 openai_compat.api_key 或设置环境变量。")
+        print("[翻译] 错误: 未配置 API Key")
+        print("       请在 config.json 中设置 openai_compat.api_key")
+        print("       或设置环境变量（默认为 OPENAI_API_KEY）")
         return None
 
     if not host or "任意" in host:
-        print("[Translate] 未配置 API Host。请在 config.json 填写 openai_compat.host。")
+        print("[翻译] 错误: 未配置 API Host")
+        print("       请在 config.json 中设置 openai_compat.host")
         return None
 
     if not model or "*******" in model:
-        print("[Translate] 未配置 Model。请在 config.json 填写 openai_compat.model。")
+        print("[翻译] 错误: 未配置 Model")
+        print("       请在 config.json 中设置 openai_compat.model")
         return None
 
-    # 构建完整的API URL
+    # 构建 API 请求
     api_url = f"https://{host}{endpoint}"
-
     headers = {
         "Accept": "application/json",
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
-
     payload = {
         "model": model,
         "messages": [
@@ -203,8 +283,9 @@ def translate_text(text, system_prompt=None):
         "max_tokens": max_tokens
     }
 
+    # 发送请求
     try:
-        # 使用 requests 发送 POST 请求，统一处理 SSL 验证
+        print(f"[翻译] 请求超时设置: {timeout}秒")
         response = requests.post(
             api_url,
             json=payload,
@@ -213,505 +294,807 @@ def translate_text(text, system_prompt=None):
             verify=verify_ssl,
             proxies=PROXIES
         )
-        response.raise_for_status()  # 检查 HTTP 状态码
+        response.raise_for_status()
 
+        # 解析响应
         result = response.json()
         content = result["choices"][0]["message"]["content"]
-        # 可选：调试输出
-        print("返回原始结果:", content)
+        print(f"[翻译] 成功: {content[:50]}...")
         return content
 
-    except requests.exceptions.RequestException as e:
-        print(f"[Translate] 网络请求失败: {e}")
+    except requests.exceptions.Timeout:
+        print(f"[翻译] 请求超时（{timeout}秒）")
         return None
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        print(f"[Translate] 响应解析失败: {e}")
-        # 可选：打印原始响应内容以供调试
+    except requests.exceptions.ConnectionError as e:
+        print(f"[翻译] 连接失败: {e}")
+        return None
+    except requests.exceptions.HTTPError as e:
+        print(f"[翻译] HTTP 错误: {e}")
+        if hasattr(response, 'text'):
+            print(f"[翻译] 响应内容: {response.text[:200]}")
+        return None
+    except (KeyError, IndexError) as e:
+        print(f"[翻译] 响应格式错误: {e}")
         if 'response' in locals():
-            print(f"原始响应: {response.text}")
+            print(f"[翻译] 原始响应: {response.text[:200]}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"[翻译] JSON 解析失败: {e}")
+        if 'response' in locals():
+            print(f"[翻译] 原始响应: {response.text[:200]}")
         return None
 
 
-# -----------------------------
-# Minecraft news fetch
-# -----------------------------
+# =============================================================================
+# 新闻获取和解析
+# =============================================================================
 
 def get_latest_news_via_api():
-    """通过官方 API 获取最新的多条新闻列表"""
+    """
+    通过 Minecraft 官方 API 获取最新新闻列表
+
+    从 Minecraft 官方搜索 API 获取指定数量的最新新闻。
+    新闻按发布时间倒序排列。
+
+    Returns:
+        list: 新闻列表，每个元素包含以下字段：
+            - title: 标题
+            - author: 作者
+            - imageAltText: 图片替代文本
+            - description: 描述
+            - release_date: 发布日期
+            - url: 新闻链接
+        失败时返回空列表
+    """
     api_url = CFG["minecraft_api"]["search_url"]
     params = {
-        "pageSize": CFG["minecraft_api"]["pageSize"],  # 配置文件控制页面大小
+        "pageSize": CFG["minecraft_api"]["pageSize"],
         "sortType": CFG["minecraft_api"]["sortType"],
         "category": CFG["minecraft_api"]["category"]
     }
 
     try:
+        print(f"[API] 正在获取新闻列表...")
         response = requests.get(
-            api_url, params=params, headers=HEADERS_HTML,
-            timeout=120, verify=CFG["http"]["verify_ssl"],
+            api_url,
+            params=params,
+            headers=HEADERS_HTML,
+            timeout=120,
+            verify=CFG["http"]["verify_ssl"],
             proxies=PROXIES
         )
-        print("API Response Code:", response.status_code)
+        print(f"[API] 响应状态码: {response.status_code}")
         response.raise_for_status()
 
+        # 解析响应
         result = response.json()
         items = result.get("result", {}).get("results", [])
+
         if not items:
-            print("API 中未返回任何新闻条目")
+            print("[API] 未返回任何新闻条目")
             return []
 
+        # 构建新闻列表
         news_list = []
+        site_base = CFG["minecraft_api"]["site_base"]
         for item in items:
-            news_url = item.get("url")
+            news_url = item.get("url", "")
+            # 补全相对路径
             if news_url and news_url.startswith("/"):
-                news_url = CFG["minecraft_api"]["site_base"] + news_url
+                news_url = site_base + news_url
+
             news_list.append({
-                "title": item.get("title"),
-                "author": item.get("author"),
-                "imageAltText": item.get("imageAltText"),
-                "description": item.get("description"),
-                "release_date": item.get("publishDate"),
+                "title": item.get("title", ""),
+                "author": item.get("author", ""),
+                "imageAltText": item.get("imageAltText", ""),
+                "description": item.get("description", ""),
+                "release_date": item.get("publishDate", ""),
                 "url": news_url
             })
 
+        print(f"[API] 成功获取 {len(news_list)} 条新闻")
         return news_list
 
-    except Exception as e:
-        print("获取 API 新闻时出错:", e)
+    except requests.exceptions.Timeout:
+        print("[API] 请求超时")
+        return []
+    except requests.exceptions.ConnectionError as e:
+        print(f"[API] 连接失败: {e}")
+        return []
+    except requests.exceptions.HTTPError as e:
+        print(f"[API] HTTP 错误: {e}")
+        return []
+    except (KeyError, json.JSONDecodeError) as e:
+        print(f"[API] 响应解析失败: {e}")
         return []
 
 
 def _normalize_whitespace(s: str) -> str:
-    s = re.sub(r"\s+", " ", s or "")
-    return s.strip()
+    """
+    标准化字符串中的空白字符
+
+    将连续的空白字符（空格、制表符、换行符等）替换为单个空格，
+    并去除首尾空白。
+
+    Args:
+        s: 待处理的字符串
+
+    Returns:
+        处理后的字符串，如果输入为 None 则返回空字符串
+    """
+    if not s:
+        return ""
+    return re.sub(r"\s+", " ", s).strip()
 
 
 def _extract_text_preserve_links(tag: Tag, base_url: str = "") -> str:
-    """提取可翻译文本：尽量保留换行与链接 href（转成 Markdown 链接）。"""
+    """
+    从 HTML 标签中提取文本，保留链接和换行
+
+    递归遍历 HTML 标签树，提取可翻译的文本内容。
+    特殊处理：
+    - <a> 标签转换为 Markdown 链接格式 [text](url)
+    - <br> 标签转换为换行符
+    - <code>, <kbd>, <samp> 标签内容用反引号包裹
+    - <p>, <li>, <blockquote> 标签后添加换行
+
+    Args:
+        tag: BeautifulSoup 标签对象
+        base_url: 基础 URL，用于补全相对链接
+
+    Returns:
+        提取并格式化后的文本
+    """
     parts = []
 
     def walk(node):
+        """递归遍历节点树"""
+        # 处理文本节点
         if isinstance(node, NavigableString):
-            txt = str(node)
-            if txt:
-                parts.append(txt)
+            text = str(node)
+            if text:
+                parts.append(text)
             return
 
         if not isinstance(node, Tag):
             return
 
-        name = (node.name or "").lower()
+        tag_name = (node.name or "").lower()
 
-        if name == "br":
+        # 换行标签
+        if tag_name == "br":
             parts.append("\n")
             return
 
-        if name == "a":
+        # 链接标签：转换为 Markdown 格式
+        if tag_name == "a":
             href = node.get("href", "").strip()
+            # 补全相对链接
             href = urljoin(base_url, href) if base_url else href
-            visible = _normalize_whitespace(node.get_text(" ", strip=True))
-            if href and visible:
-                parts.append(f"[{visible}]({href})")
-            elif visible:
-                parts.append(visible)
+            visible_text = _normalize_whitespace(node.get_text(" ", strip=True))
+
+            if href and visible_text:
+                parts.append(f"[{visible_text}]({href})")
+            elif visible_text:
+                parts.append(visible_text)
             return
 
-        if name in ("code", "kbd", "samp"):
-            txt = _normalize_whitespace(node.get_text(" ", strip=True))
-            if txt:
-                parts.append(f"`{txt}`")
+        # 代码标签：用反引号包裹
+        if tag_name in ("code", "kbd", "samp"):
+            code_text = _normalize_whitespace(node.get_text(" ", strip=True))
+            if code_text:
+                parts.append(f"`{code_text}`")
             return
 
-        for ch in node.children:
-            walk(ch)
+        # 递归处理子节点
+        for child in node.children:
+            walk(child)
 
-        if name in ("p", "li", "blockquote"):
+        # 块级元素后添加换行
+        if tag_name in ("p", "li", "blockquote"):
             parts.append("\n")
 
     walk(tag)
 
-    raw = "".join(parts)
-    raw = "\n".join([_normalize_whitespace(line) for line in raw.split("\n")])
-    raw = re.sub(r"\n{3,}", "\n\n", raw).strip()
-    return raw
+    # 合并文本片段
+    raw_text = "".join(parts)
+    # 标准化每一行的空白
+    lines = [_normalize_whitespace(line) for line in raw_text.split("\n")]
+    result = "\n".join(lines)
+    # 合并多余的空行（最多保留一个空行）
+    result = re.sub(r"\n{3,}", "\n\n", result).strip()
+
+    return result
 
 
 def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
-    """从一个容器中按顺序抽取结构化 blocks（p/h2/li/img/...）。"""
+    """
+    从 HTML 容器中按顺序提取结构化内容块
+
+    遍历容器中的所有元素，将不同类型的内容（段落、标题、列表、图片等）
+    提取为结构化的 block 对象。每个 block 包含类型、原文、元数据等信息。
+
+    Args:
+        container: BeautifulSoup 容器标签
+        blocks: 用于存储提取结果的列表（会被修改）
+        base_url: 基础 URL，用于补全相对链接
+
+    Block 结构：
+        {
+            "id": "b0001",              # 唯一标识符
+            "type": "p|h2|li|img|...",  # 内容类型
+            "source_text": "...",       # 原文（图片为空）
+            "translated_text": "",      # 译文（初始为空）
+            "meta": {...}               # 元数据（如图片的 src 和 alt）
+        }
+    """
     if not container:
         return
 
     def add_text_block(block_type: str, source_text: str, meta=None):
+        """添加文本类型的 block"""
         source_text = (source_text or "").strip()
         if not source_text:
             return
-        # 新增：按换行拆分 block
-        lines = [l.strip() for l in source_text.split("\n") if l.strip()]
+
+        # 按换行拆分为多个 block（每行一个 block）
+        lines = [line.strip() for line in source_text.split("\n") if line.strip()]
 
         for line in lines:
-            line_content = line.strip()
-            if not line_content:
+            if not line:
                 continue
 
             block_id = f"b{len(blocks)+1:04d}"
             blocks.append({
                 "id": block_id,
                 "type": block_type,
-                "source_text": line_content,
+                "source_text": line,
                 "translated_text": "",
                 "meta": meta or {}
             })
 
     def add_img_block(src: str, alt: str = "", meta=None):
+        """添加图片类型的 block"""
         src = (src or "").strip()
         if not src:
             return
+
+        # 补全相对路径
         src = urljoin(base_url, src) if base_url else src
+
         block_id = f"b{len(blocks)+1:04d}"
-        m = {"src": src, "alt": alt or ""}
+        img_meta = {"src": src, "alt": alt or ""}
         if meta:
-            m.update(meta)
+            img_meta.update(meta)
+
         blocks.append({
             "id": block_id,
             "type": "img",
             "source_text": "",
             "translated_text": "",
-            "meta": m
+            "meta": img_meta
         })
 
     def walk(node):
+        """递归遍历节点树，提取各类内容"""
+        # 处理文本节点
         if isinstance(node, NavigableString):
-            txt = _normalize_whitespace(str(node))
-            if txt:
-                add_text_block("text", txt)
+            text = _normalize_whitespace(str(node))
+            if text:
+                add_text_block("text", text)
             return
 
         if not isinstance(node, Tag):
             return
 
-        name = (node.name or "").lower()
+        tag_name = (node.name or "").lower()
 
-        if name == "img":
+        # 图片
+        if tag_name == "img":
             add_img_block(node.get("src"), node.get("alt", ""))
             return
 
-        if name in ("ul", "ol"):
+        # 列表：提取每个列表项
+        if tag_name in ("ul", "ol"):
             for li in node.find_all("li", recursive=False):
-                li_txt = _extract_text_preserve_links(li, base_url=base_url)
-                add_text_block("li", li_txt)
+                li_text = _extract_text_preserve_links(li, base_url=base_url)
+                add_text_block("li", li_text)
             return
 
-        if name in ("h1", "h2", "h3", "h4"):
-            add_text_block(name, _extract_text_preserve_links(node, base_url=base_url))
+        # 标题
+        if tag_name in ("h1", "h2", "h3", "h4"):
+            heading_text = _extract_text_preserve_links(node, base_url=base_url)
+            add_text_block(tag_name, heading_text)
             return
 
-        if name in ("p", "blockquote"):
-            add_text_block(name, _extract_text_preserve_links(node, base_url=base_url))
+        # 段落和引用
+        if tag_name in ("p", "blockquote"):
+            para_text = _extract_text_preserve_links(node, base_url=base_url)
+            add_text_block(tag_name, para_text)
             return
 
-        if name in ("pre",):
-            txt = node.get_text("\n", strip=True).strip()
-            if txt:
-                add_text_block("pre", txt)
+        # 代码块
+        if tag_name == "pre":
+            code_text = node.get_text("\n", strip=True).strip()
+            if code_text:
+                add_text_block("pre", code_text)
             return
 
-        for ch in node.children:
-            walk(ch)
+        # 递归处理其他标签的子节点
+        for child in node.children:
+            walk(child)
 
+    # 遍历容器的所有子节点
     for child in container.children:
         walk(child)
 
 
 def parse_article_page(article_url):
+    """
+    解析 Minecraft 新闻文章页面
+
+    从文章页面提取标题、发布日期和结构化内容块。
+    自动去重相同的内容块。
+
+    Args:
+        article_url: 文章页面的 URL
+
+    Returns:
+        dict: 包含以下字段的字典：
+            - title: 文章标题
+            - release_date: 发布日期（ISO 8601 格式）
+            - blocks: 内容块列表
+        失败时返回 None
+    """
     if not article_url:
-        print("文章 URL 为空")
+        print("[解析] 错误: 文章 URL 为空")
         return None
 
     try:
+        print(f"[解析] 正在获取文章: {article_url}")
         response = requests.get(
-            article_url, headers=HEADERS_HTML, timeout=120,
+            article_url,
+            headers=HEADERS_HTML,
+            timeout=120,
             verify=CFG["http"]["verify_ssl"],
             proxies=PROXIES
         )
         response.raise_for_status()
+
+        # 解析 HTML
         soup = BeautifulSoup(response.text, "html.parser")
 
+        # 提取标题
         title_tag = soup.find("h1")
         title = title_tag.get_text(strip=True) if title_tag else ""
 
+        # 提取发布日期
         date_tag = soup.find("meta", {"property": "article:published_time"})
-        date = date_tag["content"] if date_tag else ""
+        release_date = date_tag["content"] if date_tag else ""
 
+        # 提取内容块
         blocks = []
-        seen_containers = set()
+        seen_containers = set()  # 用于去重
 
-        def _container_sig(tag):
+        def _container_signature(tag):
+            """生成容器的唯一签名（基于内容的 SHA1 哈希）"""
             if not tag:
                 return None
-            txt = tag.get_text("\n", strip=True)
-            txt = re.sub(r"\s+", " ", txt or "").strip()
-            if not txt:
+            text = tag.get_text("\n", strip=True)
+            text = re.sub(r"\s+", " ", text or "").strip()
+            if not text:
                 return None
-            return hashlib.sha1(txt.encode("utf-8")).hexdigest()
+            return hashlib.sha1(text.encode("utf-8")).hexdigest()
 
+        # 查找所有内容容器
         candidates = []
+        # 文章引言部分
         intro = soup.find("div", class_="article-text")
         if intro:
             candidates.append(intro)
+        # 文章主体部分
         candidates.extend(soup.find_all("div", class_="article-section"))
 
-        for c in candidates:
-            sig = _container_sig(c)
-            if sig and sig in seen_containers:
-                continue
-            if sig:
-                seen_containers.add(sig)
-            extract_blocks_in_order(c, blocks, base_url=article_url)
+        # 提取每个容器的内容（去重）
+        for container in candidates:
+            signature = _container_signature(container)
+            if signature and signature in seen_containers:
+                continue  # 跳过重复的容器
+            if signature:
+                seen_containers.add(signature)
+            extract_blocks_in_order(container, blocks, base_url=article_url)
 
-        deduped = []
+        # 去除连续重复的 block
+        deduplicated_blocks = []
         prev_key = None
-        for b in blocks:
+        for block in blocks:
+            # 生成 block 的唯一键
             key = (
-                b.get("type"),
-                (b.get("source_text") or "").strip(),
-                json.dumps(b.get("meta") or {}, sort_keys=True, ensure_ascii=False),
+                block.get("type"),
+                (block.get("source_text") or "").strip(),
+                json.dumps(block.get("meta") or {}, sort_keys=True, ensure_ascii=False),
             )
             if key == prev_key:
-                continue
-            deduped.append(b)
+                continue  # 跳过重复的 block
+            deduplicated_blocks.append(block)
             prev_key = key
-        blocks = deduped
 
+        print(f"[解析] 成功提取 {len(deduplicated_blocks)} 个内容块")
         return {
             "title": title,
-            "release_date": date,
-            "blocks": blocks
+            "release_date": release_date,
+            "blocks": deduplicated_blocks
         }
 
+    except requests.exceptions.Timeout:
+        print("[解析] 请求超时")
+        return None
+    except requests.exceptions.ConnectionError as e:
+        print(f"[解析] 连接失败: {e}")
+        return None
+    except requests.exceptions.HTTPError as e:
+        print(f"[解析] HTTP 错误: {e}")
+        return None
     except Exception as e:
-        print("解析文章页面失败:", e)
+        print(f"[解析] 未知错误: {e}")
         return None
 
 
 def _chunk_items_for_translation(items, max_chars=1000, max_items=10):
+    """
+    将翻译项分批，避免单次请求过大
+
+    根据字符数和项目数限制，将翻译项列表分成多个批次。
+    每个批次不超过指定的字符数和项目数。
+
+    Args:
+        items: 待翻译的项目列表
+        max_chars: 每批最大字符数
+        max_items: 每批最大项目数
+
+    Returns:
+        list: 批次列表，每个批次是一个项目列表
+    """
     batches = []
-    cur = []
-    cur_len = 0
-    for it in items:
-        s = json.dumps(it, ensure_ascii=False)
-        if cur and (len(cur) >= max_items or cur_len + len(s) > max_chars):
-            batches.append(cur)
-            cur = []
-            cur_len = 0
-        cur.append(it)
-        cur_len += len(s)
-    if cur:
-        batches.append(cur)
+    current_batch = []
+    current_length = 0
+
+    for item in items:
+        # 计算项目的 JSON 字符串长度
+        item_json = json.dumps(item, ensure_ascii=False)
+        item_length = len(item_json)
+
+        # 如果当前批次已满，开始新批次
+        if current_batch and (
+            len(current_batch) >= max_items or
+            current_length + item_length > max_chars
+        ):
+            batches.append(current_batch)
+            current_batch = []
+            current_length = 0
+
+        current_batch.append(item)
+        current_length += item_length
+
+    # 添加最后一个批次
+    if current_batch:
+        batches.append(current_batch)
+
     return batches
 
 
 def translate_blocks(blocks: list) -> list:
+    """
+    批量翻译内容块
+
+    将所有文本类型的 block 提取出来，分批调用翻译 API，
+    然后将翻译结果填充回原 block 的 translated_text 字段。
+
+    Args:
+        blocks: 内容块列表
+
+    Returns:
+        list: 更新后的内容块列表（原地修改）
+
+    处理逻辑：
+        1. 提取所有需要翻译的文本（跳过图片）
+        2. 分批发送翻译请求
+        3. 解析翻译结果（支持 JSON 和纯文本格式）
+        4. 将译文填充回对应的 block
+    """
     if not blocks:
         return blocks
 
-    items = []
-    for b in blocks:
-        if b.get("type") == "img":
+    # 提取需要翻译的文本
+    items_to_translate = []
+    for block in blocks:
+        # 跳过图片
+        if block.get("type") == "img":
             continue
-        src = (b.get("source_text") or "").strip()
-        if not src:
+        source_text = (block.get("source_text") or "").strip()
+        if not source_text:
             continue
-        items.append({"id": b.get("id"), "text": src})
+        items_to_translate.append({
+            "id": block.get("id"),
+            "text": source_text
+        })
 
-    if not items:
+    if not items_to_translate:
+        print("[翻译] 没有需要翻译的内容")
         return blocks
 
+    print(f"[翻译] 开始翻译 {len(items_to_translate)} 个文本块")
+
+    # 批量翻译
     system_prompt = CFG["prompts"]["translate_blocks_system"]
     id_to_translation = {}
 
-    for batch in _chunk_items_for_translation(items):
+    for batch in _chunk_items_for_translation(items_to_translate):
         batch_json = json.dumps(batch, ensure_ascii=False, indent=0)
-        translated = translate_text(batch_json, system_prompt=system_prompt)
-        if not translated:
+        translated_result = translate_text(batch_json, system_prompt=system_prompt)
+
+        if not translated_result:
+            print(f"[翻译] 警告: 批次翻译失败，跳过 {len(batch)} 个项目")
             continue
 
-        parsed = None
+        # 尝试解析 JSON 格式的翻译结果
+        parsed_result = None
         try:
-            parsed = json.loads(translated)
-        except Exception:
-            cleaned = translated.strip()
+            parsed_result = json.loads(translated_result)
+        except json.JSONDecodeError:
+            # 如果不是标准 JSON，尝试清理 Markdown 代码块标记
+            cleaned = translated_result.strip()
             cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
             cleaned = re.sub(r"\s*```$", "", cleaned)
             try:
-                parsed = json.loads(cleaned)
-            except Exception:
-                parsed = None
+                parsed_result = json.loads(cleaned)
+            except json.JSONDecodeError:
+                print("[翻译] 警告: JSON 解析失败，尝试按行匹配")
 
-        if isinstance(parsed, list):
-            for obj in parsed:
+        # 处理 JSON 格式的结果
+        if isinstance(parsed_result, list):
+            for obj in parsed_result:
                 if isinstance(obj, dict) and "id" in obj and "translated_text" in obj:
                     id_to_translation[str(obj["id"])] = str(obj["translated_text"])
         else:
-            lines = [ln.strip() for ln in translated.splitlines() if ln.strip()]
-            for it, ln in zip(batch, lines):
-                id_to_translation[str(it["id"])] = ln
+            # 降级处理：按行匹配
+            lines = [line.strip() for line in translated_result.splitlines() if line.strip()]
+            for item, line in zip(batch, lines):
+                id_to_translation[str(item["id"])] = line
 
-    for b in blocks:
-        bid = str(b.get("id"))
-        if bid in id_to_translation:
-            b["translated_text"] = id_to_translation[bid]
+    # 将翻译结果填充回 blocks
+    translated_count = 0
+    for block in blocks:
+        block_id = str(block.get("id"))
+        if block_id in id_to_translation:
+            block["translated_text"] = id_to_translation[block_id]
+            translated_count += 1
 
+    print(f"[翻译] 完成，成功翻译 {translated_count}/{len(items_to_translate)} 个文本块")
     return blocks
 
 
 def blocks_to_plaintext(blocks: list, field: str = "source_text") -> str:
-    out = []
-    for b in blocks or []:
-        t = b.get("type")
-        if t == "img":
-            meta = b.get("meta") or {}
+    """
+    将内容块列表转换为纯文本
+
+    将结构化的 block 列表转换为可读的纯文本格式。
+    图片会转换为 Markdown 链接格式。
+
+    Args:
+        blocks: 内容块列表
+        field: 要提取的字段名，可以是 "source_text" 或 "translated_text"
+
+    Returns:
+        str: 合并后的纯文本，各块之间用双换行分隔
+    """
+    text_parts = []
+
+    for block in blocks or []:
+        block_type = block.get("type")
+
+        # 处理图片
+        if block_type == "img":
+            meta = block.get("meta") or {}
             src = meta.get("src", "")
             alt = meta.get("alt", "")
             if src:
-                out.append(f"[IMAGE:{alt}]({src})" if alt else f"[IMAGE]({src})")
+                # 转换为 Markdown 图片格式
+                if alt:
+                    text_parts.append(f"[IMAGE:{alt}]({src})")
+                else:
+                    text_parts.append(f"[IMAGE]({src})")
             continue
-        txt = (b.get(field) or "").strip()
-        if not txt:
-            continue
-        out.append(txt)
-    return "\n\n".join(out).strip()
+
+        # 处理文本
+        text = (block.get(field) or "").strip()
+        if text:
+            text_parts.append(text)
+
+    return "\n\n".join(text_parts).strip()
 
 
 def save_to_json(data):
+    """
+    将新闻数据保存为 JSON 文件
+
+    Args:
+        data: 包含新闻数据的字典，必须包含 title 和 release_date 字段
+
+    Returns:
+        bool: 保存成功返回 True，失败返回 False
+    """
     if not data:
-        print("无内容可保存")
+        print("[保存] 无内容可保存")
         return False
 
-    title = data["title"]
-    release_date = data["release_date"]
+    title = data.get("title", "untitled")
+    release_date = data.get("release_date", "")
 
+    # 生成时间戳字符串
     try:
         if 'T' in release_date:
+            # ISO 8601 格式：2024-03-08T12:30:00Z
             date_part, time_part = release_date.split('T')
             time_part = time_part.replace(':', '_').replace('Z', '')
             timestamp = f"{date_part}_{time_part}"
         else:
+            # 其他格式
             timestamp = release_date.replace(':', '_').replace(' ', '_')
-    except Exception:
+    except (ValueError, AttributeError):
+        # 如果日期格式无法解析，使用当前时间
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    title = title.replace(' ', '_')
-    for char in ['\\', '/', ':', '*', '?', '"', '<', '>', '|']:
-        title = title.replace(char, '_')
-    title = re.sub(r'_+', '_', title).strip('_')
+    # 清理标题，移除文件名中的非法字符
+    safe_title = title.replace(' ', '_')
+    illegal_chars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|']
+    for char in illegal_chars:
+        safe_title = safe_title.replace(char, '_')
+    # 合并连续的下划线
+    safe_title = re.sub(r'_+', '_', safe_title).strip('_')
     timestamp = re.sub(r'_+', '_', timestamp).strip('_')
 
+    # 构建保存路径
     save_dir = CFG["output"]["save_dir"]
     os.makedirs(save_dir, exist_ok=True)
-    file_path = os.path.join(save_dir, f"news_{title}_{timestamp}.json")
+    file_path = os.path.join(save_dir, f"news_{safe_title}_{timestamp}.json")
 
+    # 保存文件
     try:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print("保存成功:", file_path)
+        print(f"[保存] 成功: {file_path}")
         return True
-    except Exception as e:
-        print("保存文件失败:", e)
+    except IOError as e:
+        print(f"[保存] 文件写入失败: {e}")
         return False
-
-
-def check_for_updates(news_info):
-    local_news_folder = CFG["output"]["save_dir"]
-    if not os.path.isdir(local_news_folder):
-        return False
-
-    for filename in os.listdir(local_news_folder):
-        if filename.endswith(".json"):
-            try:
-                with open(os.path.join(local_news_folder, filename), 'r', encoding='utf-8') as f:
-                    local_data = json.load(f)
-                if local_data.get("title") == news_info["title"]:
-                    print("暂无新闻更新")
-                    return True
-            except Exception:
-                continue
-    return False
 
 
 def main():
-    print("开始通过 API 获取 Minecraft 最新新闻...\n")
+    """
+    主函数：获取并翻译 Minecraft 最新新闻
+
+    工作流程：
+        1. 通过 API 获取最新新闻列表
+        2. 让用户选择要翻译的新闻（或自动选择最新的）
+        3. 解析文章页面，提取结构化内容
+        4. 翻译标题和内容
+        5. 保存为 JSON 文件
+
+    配置项：
+        - minecraft_api.timeout: 用户选择超时时间（秒），0 表示不等待
+        - minecraft_api.pageSize: 获取的新闻数量
+    """
+    print("=" * 60)
+    print("Minecraft 新闻翻译工具")
+    print("=" * 60)
+    print()
+
+    # 1. 获取新闻列表
+    print("[步骤 1/5] 获取最新新闻列表...")
     news_list = get_latest_news_via_api()
 
     if not news_list:
-        print("无法通过 API 获取新闻")
+        print("[错误] 无法获取新闻列表，程序退出")
         return
 
-    print(f"获取到 {len(news_list)} 条新闻，展示最新的 {CFG['minecraft_api']['pageSize']} 条：\n")
+    page_size = CFG["minecraft_api"]["pageSize"]
+    print(f"\n获取到 {len(news_list)} 条新闻：")
     for i, news in enumerate(news_list):
-        print(f"{i+1}. {news['title']}")
+        print(f"  {i+1}. {news['title']}")
 
-    # 配置文件设置超时时间（0为不等待）
+    # 2. 选择要翻译的新闻
+    print(f"\n[步骤 2/5] 选择要翻译的新闻...")
     timeout = CFG.get("minecraft_api", {}).get("timeout", 0)
 
     if timeout == 0:
-        # 直接翻译最新的新闻
-        news_to_translate = news_list[0]
-        print(f"\n选择超时/timeout为0，自动翻译最新的新闻: {news_to_translate['title']}")
+        # 自动选择最新的新闻
+        selected_news = news_list[0]
+        print(f"配置为自动模式（timeout=0），选择最新新闻: {selected_news['title']}")
     else:
         # 等待用户输入
+        print(f"请在 {timeout} 秒内选择...")
         start_time = time.time()
         user_choice = None
+
         while time.time() - start_time < timeout:
-            choice = input(f"\n请输入要翻译的新闻编号（1-{len(news_list)}），或按回车跳过: ")
-            if choice.isdigit() and 1 <= int(choice) <= len(news_list):
-                user_choice = int(choice) - 1
-                break
-            elif choice == "":
-                print("跳过选择，自动翻译最新的新闻")
-                user_choice = 0
-                break
-            else:
-                print(f"无效的输入，请输入1到{len(news_list)}之间的数字")
+            try:
+                choice_input = input(f"请输入编号（1-{len(news_list)}），或按回车选择最新: ")
+                if choice_input.strip() == "":
+                    user_choice = 0
+                    print("选择最新新闻")
+                    break
+                choice_num = int(choice_input)
+                if 1 <= choice_num <= len(news_list):
+                    user_choice = choice_num - 1
+                    break
+                else:
+                    print(f"无效输入，请输入 1 到 {len(news_list)} 之间的数字")
+            except ValueError:
+                print("无效输入，请输入数字")
+            except KeyboardInterrupt:
+                print("\n用户取消，退出程序")
+                return
 
         if user_choice is None:
-            print(f"\n超时，自动翻译最新的新闻: {news_list[0]['title']}")
+            print(f"\n超时，自动选择最新新闻")
             user_choice = 0
 
-        news_to_translate = news_list[user_choice]
+        selected_news = news_list[user_choice]
 
-    # 继续执行翻译操作
-    article_data = parse_article_page(news_to_translate["url"])
+    print(f"已选择: {selected_news['title']}")
+
+    # 3. 解析文章页面
+    print(f"\n[步骤 3/5] 解析文章页面...")
+    article_data = parse_article_page(selected_news["url"])
+
     if not article_data:
-        print("无法解析文章详情页")
+        print("[错误] 无法解析文章页面，程序退出")
         return
 
-    title_to_translate = article_data["title"] or news_to_translate["title"]
+    # 4. 翻译标题
+    print(f"\n[步骤 4/5] 翻译标题...")
+    title_to_translate = article_data["title"] or selected_news["title"]
     translated_title = translate_text(
         title_to_translate,
         system_prompt=CFG["prompts"]["translate_title_system"]
     ) or ""
 
+    if translated_title:
+        print(f"原标题: {title_to_translate}")
+        print(f"译标题: {translated_title}")
+
+    # 5. 翻译内容
+    print(f"\n[步骤 5/5] 翻译内容...")
     blocks = article_data.get("blocks", [])
     translate_blocks(blocks)
 
+    # 生成纯文本版本
     source_content = blocks_to_plaintext(blocks, field="source_text")
     translated_content = blocks_to_plaintext(blocks, field="translated_text")
 
+    # 组装完整数据
     full_data = {
         "title": title_to_translate,
         "translated_title": translated_title,
-        "release_date": article_data.get("release_date") or news_to_translate.get("release_date", ""),
-        "url": news_to_translate.get("url", ""),
-        "author": news_to_translate.get("author", ""),
-        "imageAltText": news_to_translate.get("imageAltText", ""),
-        "description": news_to_translate.get("description", ""),
+        "release_date": article_data.get("release_date") or selected_news.get("release_date", ""),
+        "url": selected_news.get("url", ""),
+        "author": selected_news.get("author", ""),
+        "imageAltText": selected_news.get("imageAltText", ""),
+        "description": selected_news.get("description", ""),
         "blocks": blocks,
         "content": source_content,
         "translated_content": translated_content
     }
 
+    # 保存文件
+    print()
     save_to_json(full_data)
-    print("\n任务完成！")
+
+    print()
+    print("=" * 60)
+    print("任务完成！")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
