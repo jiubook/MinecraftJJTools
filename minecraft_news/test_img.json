@@ -1,0 +1,35 @@
+{
+  "title": "Test Image Support",
+  "translated_title": "测试图片支持",
+  "release_date": "2026-03-09T00:00:00Z",
+  "url": "https://example.com/test",
+  "author": "Test",
+  "imageAltText": "Test",
+  "description": "Test image support in J2MM",
+  "blocks": [
+    {
+      "id": "b0001",
+      "type": "p",
+      "source_text": "This is a test paragraph before the image.",
+      "translated_text": "这是图片前的测试段落。",
+      "meta": {}
+    },
+    {
+      "id": "b0002",
+      "type": "img",
+      "source_text": "",
+      "translated_text": "",
+      "meta": {
+        "src": "https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/screenshots/monsterroom-ingame2.jpg",
+        "alt": "A Minecraft screenshot, depicting a zombie creeper in a monster room together with two chests and a mob spawner."
+      }
+    },
+    {
+      "id": "b0003",
+      "type": "p",
+      "source_text": "This is a test paragraph after the image.",
+      "translated_text": "这是图片后的测试段落。",
+      "meta": {}
+    }
+  ]
+}

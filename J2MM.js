@@ -14,7 +14,14 @@
     {
       id: 'module_sign',
       title: '工具署名',
-      content: '[size=2][b]【本文Ai翻译及Ai排版借助了： [url=https://jiubook.github.io/MinecraftJJTools/J2MM_JsonToMcbbsMarkdown.html]J2MM[/url]、[url=https://github.com/jiubook/MinecraftJJTools]JBAiGNN[/url]、[url=https://chatgpt.com/]ChatGPT[/url]等工具 】\n【本Ai工具以 [url=https://www.gnu.org/licenses/gpl-3.0.zh-cn.html]GPL-3.0[/url] 协议发布】\n【本Ai翻译作品以 [url=https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hans]CC BY-SA 4.0[/url] 协议发布】[/b][/size]',
+      content: '[size=2][b]【本文Ai翻译及Ai排版借助了： [url=https://jiubook.github.io/MinecraftJJTools/J2MM_JsonToMcbbsMarkdown.html]J2MM[/url]、[url=https://github.com/jiubook/MinecraftJJTools]JBAiGNN[/url]、[url=https://chatgpt.com/]ChatGPT[/url]、[url=https://claude.com/]Claude[/url]等工具 】[/b][/size]',
+      position: 'start',
+      enabled: true
+    },
+    {
+      id: 'module_Agreement',
+      title: '开源协议',
+      content: '[size=2][b]【本Ai工具以 [url=https://www.gnu.org/licenses/gpl-3.0.zh-cn.html]GPL-3.0[/url] 协议发布】\n【本Ai翻译作品以 [url=https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hans]CC BY-SA 4.0[/url] 协议发布】[/b][/size]',
       position: 'end',
       enabled: true
     },
@@ -113,6 +120,26 @@
 
     if (field === 'enabled') mod.enabled = !!el.checked;
     if (field === 'position') mod.position = String(el.value);
+
+    generateOutput();
+  });
+
+  // 处理位置切换按钮点击
+  defaultModulesContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('.module-position-toggle');
+    if (!btn) return;
+
+    const id = btn.dataset.mid;
+    const mod = defaultModulesConfig.find(x => x.id === id);
+    if (!mod) return;
+
+    // 切换位置
+    mod.position = mod.position === 'end' ? 'start' : 'end';
+
+    // 更新按钮显示
+    btn.dataset.position = mod.position;
+    btn.textContent = mod.position === 'end' ? '结尾' : '开头';
+    btn.className = `module-position-toggle ${mod.position === 'end' ? 'position-end' : 'position-start'}`;
 
     generateOutput();
   });
@@ -237,7 +264,19 @@
 
       // 构建预览文本：中文在上，英文在下（双行模式）
       let previewHtml = '';
-      if (typeLabel === 'ul' || typeLabel === 'ol') {
+      if (typeLabel === 'img' || typeLabel === 'image') {
+        // 图片类型：显示缩略图和URL
+        const imgSrc = block.meta && block.meta.src ? String(block.meta.src).trim() : '';
+        const imgAlt = block.meta && block.meta.alt ? String(block.meta.alt).trim() : '';
+        if (imgSrc) {
+          previewHtml = `<div style="display: flex; align-items: center; gap: 10px;">
+            <img src="${escapeAttr(imgSrc)}" alt="${escapeAttr(imgAlt)}" style="max-width: 120px; max-height: 80px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px;">
+            <div style="flex: 1; font-size: 0.85rem; color: #555; word-break: break-all;">${escapeHtml(imgSrc)}</div>
+          </div>`;
+        } else {
+          previewHtml = `<span style="color: #999; font-style: italic;">无图片URL</span>`;
+        }
+      } else if (typeLabel === 'ul' || typeLabel === 'ol') {
         const translatedItems = Array.isArray(block.translated_items) ? block.translated_items : [];
         const items = Array.isArray(block.items) ? block.items : [];
         const translatedText = translatedItems.join(', ').slice(0, 80);
@@ -264,7 +303,23 @@
       }
 
       let editorHtml = '';
-      if (typeLabel === 'ul' || typeLabel === 'ol') {
+      if (typeLabel === 'img' || typeLabel === 'image') {
+        // 图片类型：只显示URL和alt文本编辑，不需要原文译文
+        const imgSrc = block.meta && block.meta.src ? String(block.meta.src).trim() : '';
+        const imgAlt = block.meta && block.meta.alt ? String(block.meta.alt).trim() : '';
+        editorHtml = `
+          <div class="block-edit-area" style="grid-template-columns: 1fr;">
+            <div>
+              <label>图片URL:</label>
+              <input type="text" class="block-img-src" value="${escapeAttr(imgSrc)}" placeholder="https://...">
+            </div>
+            <div>
+              <label>图片描述 (Alt Text):</label>
+              <textarea class="block-img-alt" style="min-height: 60px;">${escapeHtml(imgAlt)}</textarea>
+            </div>
+          </div>
+        `;
+      } else if (typeLabel === 'ul' || typeLabel === 'ol') {
         const items = Array.isArray(block.items) ? block.items : [];
         const translatedItems = Array.isArray(block.translated_items) ? block.translated_items : [];
         const rows = items.map((item, i) => `
@@ -410,8 +465,36 @@
       return;
     }
 
+    // 转换为img类型
+    if (nt === 'img' || nt === 'image') {
+      if (!block.meta) block.meta = {};
+      // 如果之前没有meta.src，尝试从source_text获取
+      if (!block.meta.src && block.source_text) {
+        block.meta.src = block.source_text;
+      }
+      block.source_text = '';
+      block.translated_text = '';
+      delete block.items;
+      delete block.translated_items;
+    }
+    // 从img类型转换出来
+    else if (oldType === 'img' || oldType === 'image') {
+      const imgSrc = block.meta && block.meta.src ? block.meta.src : '';
+      const imgAlt = block.meta && block.meta.alt ? block.meta.alt : '';
+      if (nt === 'ul' || nt === 'ol') {
+        block.items = imgSrc ? [imgSrc] : [];
+        block.translated_items = imgAlt ? [imgAlt] : [];
+        delete block.source_text;
+        delete block.translated_text;
+      } else {
+        block.source_text = imgSrc;
+        block.translated_text = imgAlt;
+        delete block.items;
+        delete block.translated_items;
+      }
+    }
     // ul/ol 需要 items；从文本类型切过来时自动按行拆分
-    if (nt === 'ul' || nt === 'ol') {
+    else if (nt === 'ul' || nt === 'ol') {
       const srcItems = Array.isArray(block.items) && block.items.length ? block.items : normalizeLines(block.source_text);
       const trItems  = Array.isArray(block.translated_items) && block.translated_items.length ? block.translated_items : normalizeLines(block.translated_text);
       block.items = srcItems;
@@ -445,7 +528,17 @@
     if (!container) return;
 
     const type = String(block.type || 'p').toLowerCase();
-    if (type === 'ul' || type === 'ol') {
+    if (type === 'img' || type === 'image') {
+      // 图片类型：保存到meta字段
+      const srcInput = container.querySelector('.block-img-src');
+      const altInput = container.querySelector('.block-img-alt');
+      if (!block.meta) block.meta = {};
+      if (srcInput) block.meta.src = srcInput.value;
+      if (altInput) block.meta.alt = altInput.value;
+      // 清空source_text和translated_text
+      block.source_text = '';
+      block.translated_text = '';
+    } else if (type === 'ul' || type === 'ol') {
       const sources = [...container.querySelectorAll('input[data-field="source"]')];
       const trans = [...container.querySelectorAll('input[data-field="translated"]')];
       block.items = sources.map(i => i.value);
@@ -507,18 +600,18 @@
     defaultModulesContainer.innerHTML = '';
     defaultModulesConfig.forEach(m => {
       const div = document.createElement('div');
-      div.className = 'module-item module-default';
+      div.className = 'module-item module-default module-compact';
       div.innerHTML = `
-        <h4>${escapeHtml(m.title)}</h4>
-        <div class="module-controls">
-          <label><input type="checkbox" ${m.enabled ? 'checked' : ''} data-mid="${escapeAttr(m.id)}" data-field="enabled"> 启用</label>
-          <label>位置：
-            <select data-mid="${escapeAttr(m.id)}" data-field="position">
-              <option value="start" ${m.position === 'start' ? 'selected' : ''}>开头</option>
-              <option value="end" ${m.position === 'end' ? 'selected' : ''}>结尾</option>
-            </select>
-          </label>
-        </div>
+        <label class="module-checkbox">
+          <input type="checkbox" ${m.enabled ? 'checked' : ''} data-mid="${escapeAttr(m.id)}" data-field="enabled">
+          <span>${escapeHtml(m.title)}</span>
+        </label>
+        <button class="module-position-toggle ${m.position === 'end' ? 'position-end' : 'position-start'}"
+                data-mid="${escapeAttr(m.id)}"
+                data-field="position"
+                data-position="${escapeAttr(m.position)}">
+          ${m.position === 'end' ? '结尾' : '开头'}
+        </button>
       `;
       defaultModulesContainer.appendChild(div);
     });
@@ -816,7 +909,7 @@
     if (type === 'ul' || type === 'ol') {
       const items = Array.isArray(block.items) ? block.items : [];
       const translatedItems = Array.isArray(block.translated_items) ? block.translated_items : [];
-      const tag = type === 'ol' ? 'ol' : 'ul';
+      const tag = type === 'ol' ? 'list=1' : 'list';
       const li = items.map((item, i) => {
         const itemSrc = mdLinksToBBCode(normalizeText(item));
         const itemTr = mdLinksToBBCode(normalizeText(translatedItems[i] || ''));
@@ -825,7 +918,7 @@
         if (itemTr) return `[*]${escapeBB(itemTr)}\n[color=#bcbcbc]${escapeBB(itemSrc)}[/color]`;
         return `[*]${escapeBB(itemSrc)}`;
       }).join('\n');
-      return `[${tag}]\n${li}\n[/${tag}]`;
+      return `[${tag}]\n${li}\n[/list]`;
     }
 
     if (type === 'h1') return `[size=7][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
@@ -835,10 +928,10 @@
     if (type === 'blockquote' || type === 'quote') return `[quote]${duo(escapeBB(trBB), escapeBB(srcBB))}[/quote]`;
     if (type === 'code' || type === 'pre') return `[code]${escapeBB(src || tr || '')}[/code]`;
     if (type === 'img' || type === 'image') {
-      const u = String(block.url || block.src || '').trim();
-      const alt = String(block.alt || block.imageAltText || '').trim();
+      const u = block.meta && block.meta.src ? String(block.meta.src).trim() : '';
+      const alt = block.meta && block.meta.alt ? String(block.meta.alt).trim() : '';
       if (!u) return alt ? `[i]${escapeBB(alt)}[/i]` : '';
-      return alt ? `[img]${escapeBB(u)}[/img]\n[i]${escapeBB(alt)}[/i]` : `[img]${escapeBB(u)}[/img]`;
+      return `[align=center][img]${escapeBB(u)}[/img][/align]`;
     }
     if (type === 'li') return duo(escapeBB(trBB), escapeBB(srcBB));
     return duo(escapeBB(trBB), escapeBB(srcBB));
@@ -891,9 +984,9 @@
     }
 
     if (type === 'img' || type === 'image') {
-      const u = String(block.url || block.src || '').trim();
-      const alt = String(block.alt || block.imageAltText || '').trim() || 'image';
-      return u ? `![${alt}](${u})` : (alt ? `*${alt}*` : '');
+      const u = block.meta && block.meta.src ? String(block.meta.src).trim() : '';
+      const alt = block.meta && block.meta.alt ? String(block.meta.alt).trim() : 'image';
+      return u ? `\n![${alt}](${u})\n` : (alt ? `*${alt}*` : '');
     }
 
     if (type === 'li') return duo(tr, src);
@@ -1002,7 +1095,7 @@
         .filter(Boolean)
         .map(x => `[*]${x}`)
         .join('\n');
-      return items ? `[ul]\n${items}\n[/ul]` : m;
+      return items ? `[list]\n${items}\n[/list]` : m;
     });
 
     // 有序列表：1. 2. 等数字开头的行
@@ -1012,7 +1105,7 @@
         .filter(Boolean)
         .map(x => `[*]${x}`)
         .join('\n');
-      return items ? `[ol]\n${items}\n[/ol]` : m;
+      return items ? `[list=1]\n${items}\n[/list]` : m;
     });
 
     return s;
@@ -1068,13 +1161,39 @@
       return t;
     });
 
-    // 列表
-    s = s.replace(/\[(ul|ol)]([\s\S]*?)\[\/\1]/gi, (_, tag, inner) => {
+    // 列表：支持 [list] 和 [list=1]
+    // 有序列表 [list=1]
+    s = s.replace(/\[list=1\]([\s\S]*?)\[\/list\]/gi, (_, inner) => {
       const raw = String(inner);
       const items = raw.split(/\n/).map(x => x.trim()).filter(Boolean);
       let idx = 1;
       const lines = items.map(line => {
-        const m = line.match(/^\[\*](.*)$/);
+        const m = line.match(/^\[\*\](.*)$/);
+        if (!m) return null;
+        const content = m[1].trim();
+        return `${idx++}. ${content}`;
+      }).filter(Boolean);
+      return lines.join('\n');
+    });
+    // 无序列表 [list]
+    s = s.replace(/\[list\]([\s\S]*?)\[\/list\]/gi, (_, inner) => {
+      const raw = String(inner);
+      const items = raw.split(/\n/).map(x => x.trim()).filter(Boolean);
+      const lines = items.map(line => {
+        const m = line.match(/^\[\*\](.*)$/);
+        if (!m) return null;
+        const content = m[1].trim();
+        return `- ${content}`;
+      }).filter(Boolean);
+      return lines.join('\n');
+    });
+    // 兼容旧格式 [ul] 和 [ol]
+    s = s.replace(/\[(ul|ol)\]([\s\S]*?)\[\/\1\]/gi, (_, tag, inner) => {
+      const raw = String(inner);
+      const items = raw.split(/\n/).map(x => x.trim()).filter(Boolean);
+      let idx = 1;
+      const lines = items.map(line => {
+        const m = line.match(/^\[\*\](.*)$/);
         if (!m) return null;
         const content = m[1].trim();
         if (tag.toLowerCase() === 'ol') return `${idx++}. ${content}`;
@@ -1082,7 +1201,6 @@
       }).filter(Boolean);
       return lines.join('\n');
     });
-
     // 清理残留的 [*]
     s = s.replace(/^\s*\[\*]\s*/gm, '- ');
 
@@ -1147,8 +1265,8 @@
     html = html.replace(/\[hr]/gi, '<hr />');
 
     // lists
-    html = html.replace(/\[ul]([\s\S]*?)\[\/ul]/gi, '<ul>$1</ul>');
-    html = html.replace(/\[ol]([\s\S]*?)\[\/ol]/gi, '<ol>$1</ol>');
+    html = html.replace(/\[list]([\s\S]*?)\[\/list]/gi, '<ul>$1</ul>');
+    html = html.replace(/\[list=1]([\s\S]*?)\[\/list]/gi, '<ol>$1</ol>');
     html = html.replace(/\[\*]/g, '<li>');
 
     // 关闭 li（把 <li>... 补上 </li>）

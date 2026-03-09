@@ -221,25 +221,12 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 5. **格式转换**：使用 J2MM 工具将 JSON 转换为所需格式
 6. **发布内容**：将转换后的内容发布到论坛或博客
 
-## 🔄 更新日志
-
-### JBAiGNN v0.0.8
-- 优化代码结构，添加详细注释
-- 改进错误处理和用户提示
-- 删除无用代码，提升性能
-- 新增自动安装脚本
-
-### J2MM v0.0.9
-- 支持逐句人工校对修改
-- 支持自定义头尾模块
-- 优化输出格式
-
 ## 🚧 未来计划
 
 - [x] 逐句人工校对修改
 - [x] 头尾自定义模块
 - [x] 代理服务器支持
-- [ ] 图片自动爬取
+- [x] 图片自动爬取
 - [ ] GUI 图形界面
 - [ ] 整合为单个程序
 - [ ] Docker 容器化部署
@@ -251,11 +238,11 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 如有问题或建议，欢迎：
 - 提交 Issue 进行讨论
-- 联系：JiuBook
+- 联系：JiuBook@qq.com
 
 ## 📄 许可证
 
-本项目遵循开源协议，欢迎使用和贡献。
+本项目遵循GPL-3.0开源协议，欢迎使用和贡献。
 
 ---
 

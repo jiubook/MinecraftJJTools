@@ -16,8 +16,7 @@ Minecraft 新闻翻译工具
 使用方法：
     python JBAiGNN_JiuBookAiGetNewestNews.py
 
-作者：JiuBook AI
-版本：008
+作者：JiuBook
 """
 
 import http.client
@@ -672,6 +671,25 @@ def parse_article_page(article_url):
         date_tag = soup.find("meta", {"property": "article:published_time"})
         release_date = date_tag["content"] if date_tag else ""
 
+        # 提取头图URL
+        header_image_url = ""
+        # 尝试从 og:image meta 标签获取
+        og_image = soup.find("meta", {"property": "og:image"})
+        if og_image and og_image.get("content"):
+            header_image_url = og_image["content"]
+        # 如果没有，尝试从文章头部的图片获取
+        if not header_image_url:
+            article_head = soup.find("div", class_="article-head")
+            if article_head:
+                img_tag = article_head.find("img")
+                if img_tag and img_tag.get("src"):
+                    header_image_url = img_tag["src"]
+        # 补全相对路径
+        if header_image_url and header_image_url.startswith("/"):
+            header_image_url = urljoin(article_url, header_image_url)
+
+        print(f"[解析] 头图URL: {header_image_url if header_image_url else '未找到'}")
+
         # 提取内容块
         blocks = []
         seen_containers = set()  # 用于去重
@@ -699,14 +717,16 @@ def parse_article_page(article_url):
         for container in candidates:
             signature = _container_signature(container)
             if signature and signature in seen_containers:
+                print(f"[解析] 跳过重复容器（签名: {signature[:16]}...）")
                 continue  # 跳过重复的容器
             if signature:
                 seen_containers.add(signature)
+                print(f"[解析] 处理容器（签名: {signature[:16]}...）")
             extract_blocks_in_order(container, blocks, base_url=article_url)
 
-        # 去除连续重复的 block
+        # 去除所有重复的 block（不仅仅是连续的）
         deduplicated_blocks = []
-        prev_key = None
+        seen_blocks = set()
         for block in blocks:
             # 生成 block 的唯一键
             key = (
@@ -714,15 +734,21 @@ def parse_article_page(article_url):
                 (block.get("source_text") or "").strip(),
                 json.dumps(block.get("meta") or {}, sort_keys=True, ensure_ascii=False),
             )
-            if key == prev_key:
+            if key in seen_blocks:
+                print(f"[解析] 跳过重复 block: {block.get('type')} - {(block.get('source_text') or '')[:50]}...")
                 continue  # 跳过重复的 block
+            seen_blocks.add(key)
             deduplicated_blocks.append(block)
-            prev_key = key
 
-        print(f"[解析] 成功提取 {len(deduplicated_blocks)} 个内容块")
+        # 重新编号 blocks，确保 ID 连续
+        for i, block in enumerate(deduplicated_blocks):
+            block["id"] = f"b{i+1:04d}"
+
+        print(f"[解析] 成功提取 {len(deduplicated_blocks)} 个内容块（去重后）")
         return {
             "title": title,
             "release_date": release_date,
+            "header_image_url": header_image_url,
             "blocks": deduplicated_blocks
         }
 
@@ -914,6 +940,59 @@ def blocks_to_plaintext(blocks: list, field: str = "source_text") -> str:
     return "\n\n".join(text_parts).strip()
 
 
+def download_header_image(image_url, save_path):
+    """
+    下载文章头图
+
+    Args:
+        image_url: 图片URL
+        save_path: 保存路径（包含文件名）
+
+    Returns:
+        bool: 下载成功返回 True，失败返回 False
+    """
+    if not image_url:
+        print("[下载] 没有头图URL，跳过下载")
+        return False
+
+    try:
+        print(f"[下载] 正在下载头图: {image_url}")
+        response = requests.get(
+            image_url,
+            headers=HEADERS_HTML,
+            timeout=120,
+            verify=CFG["http"]["verify_ssl"],
+            proxies=PROXIES,
+            stream=True  # 使用流式下载，适合大文件
+        )
+        response.raise_for_status()
+
+        # 保存图片
+        with open(save_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+        print(f"[下载] 头图保存成功: {save_path}")
+        return True
+
+    except requests.exceptions.Timeout:
+        print("[下载] 请求超时")
+        return False
+    except requests.exceptions.ConnectionError as e:
+        print(f"[下载] 连接失败: {e}")
+        return False
+    except requests.exceptions.HTTPError as e:
+        print(f"[下载] HTTP 错误: {e}")
+        return False
+    except IOError as e:
+        print(f"[下载] 文件写入失败: {e}")
+        return False
+    except Exception as e:
+        print(f"[下载] 未知错误: {e}")
+        return False
+
+
 def save_to_json(data):
     """
     将新闻数据保存为 JSON 文件
@@ -959,15 +1038,36 @@ def save_to_json(data):
     os.makedirs(save_dir, exist_ok=True)
     file_path = os.path.join(save_dir, f"news_{safe_title}_{timestamp}.json")
 
-    # 保存文件
+    # 保存JSON文件
     try:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"[保存] 成功: {file_path}")
-        return True
+        print(f"[保存] JSON保存成功: {file_path}")
     except IOError as e:
-        print(f"[保存] 文件写入失败: {e}")
+        print(f"[保存] JSON文件写入失败: {e}")
         return False
+
+    # 下载头图
+    header_image_url = data.get("header_image_url", "")
+    if header_image_url:
+        # 获取图片扩展名
+        image_ext = ".jpg"  # 默认扩展名
+        try:
+            # 尝试从URL中提取扩展名
+            url_path = header_image_url.split("?")[0]  # 去除查询参数
+            if "." in url_path:
+                ext = url_path.rsplit(".", 1)[-1].lower()
+                if ext in ["jpg", "jpeg", "png", "gif", "webp"]:
+                    image_ext = f".{ext}"
+        except:
+            pass
+
+        image_path = os.path.join(save_dir, f"news_{safe_title}_{timestamp}{image_ext}")
+        download_header_image(header_image_url, image_path)
+    else:
+        print("[保存] 没有头图URL，跳过下载")
+
+    return True
 
 
 def main():
@@ -1082,6 +1182,7 @@ def main():
         "author": selected_news.get("author", ""),
         "imageAltText": selected_news.get("imageAltText", ""),
         "description": selected_news.get("description", ""),
+        "header_image_url": article_data.get("header_image_url", ""),
         "blocks": blocks,
         "content": source_content,
         "translated_content": translated_content

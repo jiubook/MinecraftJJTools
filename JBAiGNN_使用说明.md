@@ -124,14 +124,6 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 - `content` - 原文纯文本
 - `translated_content` - 译文纯文本
 
-## 🔄 更新日志
-
-### 版本 008
-- 优化代码结构，添加详细注释
-- 改进错误处理和用户提示
-- 删除无用代码，提升性能
-- 新增自动安装脚本
-
 ## 📧 联系方式
 
 如有问题或建议，请联系：JiuBook AI
