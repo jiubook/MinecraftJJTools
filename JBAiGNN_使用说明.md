@@ -1,8 +1,14 @@
-# Minecraft 新闻翻译工具 - 使用说明 (v0.1.1)
+# Minecraft 新闻翻译工具 - 使用说明 (v0.1.2)
 
 ## 📋 功能介绍
 
-本工具可以自动获取 Minecraft 官方网站的最新新闻，并使用 AI 翻译成简体中文。
+本工具可以自动获取 Minecraft 官方网站的最新新闻和 Feedback 网站的更新日志，并使用 AI 翻译成简体中文。
+
+### v0.1.2 新增功能
+
+- 🌐 **Feedback 网站爬虫**：支持从 feedback.minecraft.net 获取更新日志
+- 📝 **多分类支持**：正式版、测试版、快照版、教育版更新日志
+- 🔧 **灵活配置**：可自定义每个分类的启用状态和获取数量
 
 ### v0.1.1 新增功能
 
@@ -52,7 +58,50 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
    }
    ```
 
-3. **重试和并发配置**（v0.1.1 新增）：
+3. **Feedback 网站配置**（v0.1.2 新增）：
+   ```json
+   "feedback_site": {
+     "enabled": true,                    // 是否启用 Feedback 网站爬取
+     "sections": [
+       {
+         "name": "Release Changelogs",
+         "name_cn": "正式版更新日志",
+         "section_id": "360001186971",
+         "enabled": true,                // 是否启用该分类
+         "articles_count": 6             // 获取文章数量
+       },
+       {
+         "name": "Beta and Preview Information and Changelogs",
+         "name_cn": "测试版更新日志",
+         "section_id": "360001185332",
+         "enabled": true,
+         "articles_count": 6
+       },
+       {
+         "name": "Snapshot Information and Changelogs",
+         "name_cn": "快照版更新日志",
+         "section_id": "360002267532",
+         "enabled": true,
+         "articles_count": 6
+       },
+       {
+         "name": "Minecraft Education Changelogs",
+         "name_cn": "教育版更新日志",
+         "section_id": "360001293291",
+         "enabled": false,               // 默认关闭
+         "articles_count": 3
+       }
+     ]
+   }
+   ```
+
+   **说明**：
+   - `enabled` - 是否启用 Feedback 网站爬取
+   - `sections` - 更新日志分类列表
+   - 每个分类可单独启用/禁用
+   - `articles_count` - 每个分类获取的文章数量（建议 3-10）
+
+4. **重试和并发配置**（v0.1.1 新增）：
    ```json
    "retry": {
      "translation": {
@@ -74,7 +123,7 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
    - `wait_for_input` - 多次失败后是否暂停等待用户输入
    - `translation_workers` - 并发翻译的线程数（1=串行翻译，建议 2-5）
 
-4. **其他配置**：
+5. **其他配置**：
    - `pageSize`: 获取的新闻数量（默认 20）
    - `timeout`: 用户选择超时时间（0 表示自动选择最新）
    - `save_dir`: 保存目录（默认 minecraft_news）
@@ -86,6 +135,7 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
 - requests >= 2.31.0
 - beautifulsoup4 >= 4.12.0
 - urllib3 >= 2.0.0
+- curl_cffi >= 0.5.0（v0.1.2 新增，用于 Feedback 网站爬取）
 
 ## 🔧 手动安装依赖
 
@@ -145,6 +195,18 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 - 确保使用 UTF-8 编码打开文件
 - 使用支持 UTF-8 的文本编辑器（如 VS Code、Notepad++）
 
+### 5. Feedback 网站爬取失败（v0.1.2）
+
+**可能原因**：
+- curl_cffi 库未安装（运行 `pip install curl_cffi>=0.5.0`）
+- 网络连接问题（检查代理设置）
+- Cloudflare 防护更新（等待工具更新）
+
+**解决方法**：
+- 确保已安装 curl_cffi 库
+- 检查 `config.json` 中的 `feedback_site.enabled` 是否为 `true`
+- 如不需要 Feedback 网站功能，可设置 `enabled: false` 禁用
+
 ## 📝 输出格式
 
 翻译结果保存为 JSON 格式，包含：
@@ -153,9 +215,11 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 - `translated_title` - 译标题
 - `release_date` - 发布日期
 - `url` - 原文链接
-- `blocks` - 结构化内容块（v0.1.1 支持嵌套列表）
+- `blocks` - 结构化内容块（支持嵌套列表）
 - `content` - 原文纯文本
 - `translated_content` - 译文纯文本
+
+**v0.1.2 新增**：Feedback 网站的更新日志也会保存为相同格式，方便统一处理。
 
 ## ⚡ 性能优化 (v0.1.1)
 

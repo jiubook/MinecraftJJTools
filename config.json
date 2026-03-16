@@ -15,11 +15,51 @@
   },
   "minecraft_api": {
     "search_url": "https://net-secondary.web.minecraft-services.net/api/v1.0/zh-cn/search",
-    "pageSize": 15,
+    "pageSize": 6,
     "sortType": "Recent",
     "category": "News",
     "site_base": "https://www.minecraft.net",
 	"timeout": 30
+  },
+  "feedback_site": {
+    "enabled": true,
+    "base_url": "https://feedback.minecraft.net",
+    "knowledge_base_url": "https://feedback.minecraft.net/hc/en-us/categories/115000410252-Knowledge-Base",
+    "sections": [
+      {
+        "name": "Release Changelogs",
+        "name_cn": "正式版更新日志",
+        "url": "https://feedback.minecraft.net/hc/en-us/sections/360001186971-Release-Changelogs",
+        "section_id": "360001186971",
+        "enabled": true,
+        "articles_count": 6
+      },
+      {
+        "name": "Beta and Preview Information and Changelogs",
+        "name_cn": "测试版更新日志",
+        "url": "https://feedback.minecraft.net/hc/en-us/sections/360001185332-Beta-and-Preview-Information-and-Changelogs",
+        "section_id": "360001185332",
+        "enabled": true,
+        "articles_count": 6
+      },
+      {
+        "name": "Snapshot Information and Changelogs",
+        "name_cn": "快照版更新日志",
+        "url": "https://feedback.minecraft.net/hc/en-us/sections/360002267532-Snapshot-Information-and-Changelogs",
+        "section_id": "360002267532",
+        "enabled": true,
+        "articles_count": 6
+      },
+      {
+        "name": "Minecraft Education Changelogs",
+        "name_cn": "教育版更新日志",
+        "url": "https://feedback.minecraft.net/hc/en-us/sections/360001293291-Minecraft-Education-Changelogs",
+        "section_id": "360001293291",
+        "enabled": false,
+        "articles_count": 3
+      }
+    ],
+    "timeout": 30
   },
   "http": {
     "verify_ssl": false,

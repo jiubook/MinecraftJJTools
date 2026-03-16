@@ -33,6 +33,7 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
 
 **主要功能**：
 - 自动获取 Minecraft 官方网站最新新闻
+- 自动获取 Feedback 网站更新日志（v0.1.2 新增）
 - 使用 AI 翻译成简体中文
 - 导出为结构化 JSON 格式
 - 支持代理服务器访问
@@ -132,7 +133,52 @@ BBCode 格式：
 - 如需使用代理，填写代理地址（如 `http://127.0.0.1:7890`）
 - 如不使用代理，留空即可（`""`）
 
-#### 3. 重试和并发配置（v0.1.1 新增）
+#### 3. Feedback 网站配置（v0.1.2 新增）
+
+```json
+"feedback_site": {
+  "enabled": true,                    // 是否启用 Feedback 网站爬取
+  "base_url": "https://feedback.minecraft.net",
+  "sections": [
+    {
+      "name": "Release Changelogs",
+      "name_cn": "正式版更新日志",
+      "section_id": "360001186971",
+      "enabled": true,                // 是否启用该分类
+      "articles_count": 6             // 获取文章数量
+    },
+    {
+      "name": "Beta and Preview Information and Changelogs",
+      "name_cn": "测试版更新日志",
+      "section_id": "360001185332",
+      "enabled": true,
+      "articles_count": 6
+    },
+    {
+      "name": "Snapshot Information and Changelogs",
+      "name_cn": "快照版更新日志",
+      "section_id": "360002267532",
+      "enabled": true,
+      "articles_count": 6
+    },
+    {
+      "name": "Minecraft Education Changelogs",
+      "name_cn": "教育版更新日志",
+      "section_id": "360001293291",
+      "enabled": false,               // 默认关闭教育版
+      "articles_count": 3
+    }
+  ]
+}
+```
+
+**说明**：
+- `enabled` - 是否启用 Feedback 网站爬取（True=启用，False=禁用）
+- `sections` - 更新日志分类列表
+- `section_id` - 分类 ID（请勿修改）
+- `articles_count` - 每个分类获取的文章数量（建议 3-10）
+
+#### 4. 重试和并发配置（v0.1.1 新增）
 
 ```json
 "retry": {
@@ -155,7 +201,7 @@ BBCode 格式：
 - `wait_for_input` - 多次失败后是否暂停等待用户输入（True=等待，False=自动跳过）
 - `translation_workers` - 并发翻译的线程数（1=串行翻译，3=3个线程并发，建议 2-5）
 
-#### 4. 其他配置
+#### 5. 其他配置
 
 ```json
 "pageSize": 20,           // 获取的新闻数量（不可超过24）
@@ -170,6 +216,7 @@ BBCode 格式：
 - requests >= 2.31.0
 - beautifulsoup4 >= 4.12.0
 - urllib3 >= 2.0.0
+- curl_cffi >= 0.5.0（v0.1.2 新增，用于 Feedback 网站爬取）
 
 ## 🔧 手动安装依赖
 
@@ -242,6 +289,29 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 - 双击打开 `J2MM_JsonToMcbbsMarkdown.html`
 - 在浏览器中使用
 
+### 6. Feedback 网站爬取失败（v0.1.2）
+
+**可能原因**：
+- curl_cffi 库未安装
+- 网络连接问题
+- Cloudflare 防护更新
+
+**解决方法**：
+```bash
+# 安装 curl_cffi 库
+pip install curl_cffi>=0.5.0
+
+# 或使用国内镜像源
+pip install curl_cffi>=0.5.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+如不需要 Feedback 网站功能，可在 `config.json` 中设置：
+```json
+"feedback_site": {
+  "enabled": false
+}
+```
+
 ## 🎯 使用流程
 
 1. **配置环境**：编辑 `config.json`，填写 API 信息
@@ -251,9 +321,52 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 5. **格式转换**：使用 J2MM 工具将 JSON 转换为所需格式
 6. **发布内容**：将转换后的内容发布到论坛或博客
 
-## 🆕 版本更新 (v0.1.1)
+## 🆕 版本更新
 
-### 新增功能
+### v0.1.2 新增功能
+
+1. **Feedback 网站爬虫功能**
+   - 支持从 feedback.minecraft.net 获取更新日志
+   - 支持多个分类：正式版、测试版、快照版、教育版
+   - 使用 curl_cffi 绕过 Cloudflare 防护
+   - 可配置每个分类的启用状态和获取数量
+
+2. **新增依赖库**
+   - curl_cffi >= 0.5.0（用于 Feedback 网站爬取）
+
+3. **配置优化**
+   - 新增 `feedback_site` 配置块
+   - 支持自定义各类更新日志的获取策略
+
+### v0.1.2 配置说明
+
+在 `config.json` 中新增以下配置项：
+
+```json
+"feedback_site": {
+  "enabled": true,                    // 是否启用 Feedback 网站爬取
+  "base_url": "https://feedback.minecraft.net",
+  "sections": [
+    {
+      "name": "Release Changelogs",
+      "name_cn": "正式版更新日志",
+      "section_id": "360001186971",
+      "enabled": true,                // 是否启用该分类
+      "articles_count": 6             // 获取文章数量
+    },
+    {
+      "name": "Beta and Preview Information and Changelogs",
+      "name_cn": "测试版更新日志",
+      "section_id": "360001185332",
+      "enabled": true,
+      "articles_count": 6
+    }
+    // ... 更多分类
+  ]
+}
+```
+
+### v0.1.1 新增功能
 
 1. **翻译自动重试机制**
    - 翻译失败时自动重试，提高成功率
@@ -270,7 +383,7 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
    - 支持 BBCode 和 Markdown 格式的嵌套列表
    - 自动识别列表缩进层级
 
-### 配置说明
+### v0.1.1 配置说明
 
 在 `config.json` 中新增以下配置项：
 
@@ -299,6 +412,7 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 - [x] 翻译自动重试机制
 - [x] 并发翻译支持
 - [x] 嵌套列表支持
+- [x] Feedback 网站更新日志爬取
 - [ ] GUI 图形界面
 - [ ] 整合为单个程序
 - [ ] Docker 容器化部署

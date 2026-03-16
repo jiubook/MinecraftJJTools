@@ -32,6 +32,14 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# 尝试导入 curl_cffi（用于 Feedback 网站爬取，绕过 Cloudflare）
+try:
+    from curl_cffi import requests as cffi_requests
+    CURL_CFFI_AVAILABLE = True
+except ImportError:
+    CURL_CFFI_AVAILABLE = False
+    cffi_requests = None
+
 # 禁用 SSL 警告（如果配置中关闭了 SSL 验证）
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -225,6 +233,291 @@ HEADERS_HTML = {
     "User-Agent": CFG["http"]["user_agent"],
     "Accept": CFG["http"]["accept"]
 }
+
+
+# =============================================================================
+# Feedback 网站爬虫（使用 curl_cffi 绕过 Cloudflare）
+# =============================================================================
+
+class FeedbackScraper:
+    """
+    Minecraft Feedback 网站爬虫类
+
+    使用 curl_cffi 模拟真实浏览器，绕过 Cloudflare Bot Management 防护
+    """
+
+    def __init__(self, config):
+        """
+        初始化爬虫
+
+        Args:
+            config: 配置字典，包含 feedback_site 和 http 配置
+        """
+        if not CURL_CFFI_AVAILABLE:
+            raise ImportError(
+                "curl_cffi 未安装。Feedback 爬虫需要 curl_cffi 来绕过 Cloudflare 防护。\n"
+                "请运行: pip install curl_cffi"
+            )
+
+        self.config = config
+        self.feedback_config = config.get('feedback_site', {})
+        self.http_config = config.get('http', {})
+        self.base_url = self.feedback_config.get('base_url', 'https://feedback.minecraft.net')
+        self.timeout = self.feedback_config.get('timeout', 30)
+
+        # 设置请求头
+        self.headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-User': '?1',
+            'Sec-Fetch-Dest': 'document',
+        }
+
+        # 创建 session
+        self.session = cffi_requests.Session()
+
+    def fetch_page(self, url, referer=None):
+        """
+        获取页面内容
+
+        Args:
+            url: 页面URL（可以是相对路径或完整URL）
+            referer: 可选的Referer头部
+
+        Returns:
+            BeautifulSoup对象，如果失败返回None
+        """
+        try:
+            # 将相对URL转换为绝对URL
+            full_url = urljoin(self.base_url, url)
+
+            # 准备headers
+            headers = self.headers.copy()
+            if referer:
+                headers['Referer'] = referer
+
+            # 使用 curl_cffi 发送请求，模拟 Chrome 浏览器
+            response = self.session.get(
+                full_url,
+                headers=headers,
+                timeout=self.timeout,
+                impersonate="chrome"  # 关键：模拟 Chrome 浏览器的 TLS 指纹
+            )
+            response.raise_for_status()
+            response.encoding = 'utf-8'
+            return BeautifulSoup(response.text, 'html.parser')
+        except Exception as e:
+            print(f"获取页面失败 {full_url}: {e}")
+            return None
+
+    def parse_knowledge_base(self, soup):
+        """
+        解析 Knowledge Base 主页，提取所有分类的文章列表
+
+        Args:
+            soup: BeautifulSoup对象
+
+        Returns:
+            字典，键为分类名，值为文章列表
+        """
+        sections_data = {}
+
+        # 查找所有分类section
+        sections = soup.find_all('section', class_='section category-section')
+
+        for section in sections:
+            # 获取分类标题和链接
+            title_link = section.find('h3', class_='section-tree-title')
+            if not title_link:
+                continue
+
+            section_link = title_link.find('a', class_='section-tree-title-link')
+            if not section_link:
+                continue
+
+            section_name = section_link.get_text(strip=True).replace(' →', '')
+            section_url = section_link.get('href', '')
+
+            # 获取文章列表
+            articles = []
+            article_list = section.find('ul', class_='article-list')
+            if article_list:
+                for li in article_list.find_all('li', class_='article-list-item'):
+                    article_link = li.find('a', class_='article-list-link')
+                    if article_link:
+                        article_title = article_link.get_text(strip=True)
+                        article_url = article_link.get('href', '')
+                        articles.append({
+                            'title': article_title,
+                            'url': article_url
+                        })
+
+            sections_data[section_name] = {
+                'section_url': section_url,
+                'articles': articles
+            }
+
+        return sections_data
+
+    def parse_article(self, soup):
+        """
+        解析文章页面，提取标题和内容
+
+        Args:
+            soup: BeautifulSoup对象
+
+        Returns:
+            字典，包含title和content
+        """
+        result = {
+            'title': '',
+            'content': '',
+            'posted_date': ''
+        }
+
+        # 提取标题
+        title_elem = soup.find('h1', class_='article-title')
+        if title_elem:
+            result['title'] = title_elem.get_text(strip=True)
+
+        # 提取文章内容
+        article_body = soup.find('div', class_='article-body')
+        if article_body:
+            # 提取发布日期
+            posted_elem = article_body.find('strong', string='Posted:')
+            if posted_elem and posted_elem.parent:
+                date_text = posted_elem.parent.get_text(strip=True)
+                result['posted_date'] = date_text.replace('Posted:', '').strip()
+
+            # 提取内容（保留HTML结构）
+            result['content'] = str(article_body)
+
+        return result
+
+    def get_latest_articles(self, limit_per_section=6):
+        """
+        获取最新文章列表（仅列表，不获取详细内容）
+
+        Args:
+            limit_per_section: 每个分类获取的文章数量（可被配置覆盖）
+
+        Returns:
+            按分类组织的文章列表字典
+        """
+        knowledge_base_url = self.feedback_config.get('knowledge_base_url')
+        if not knowledge_base_url:
+            print("未配置 knowledge_base_url")
+            return {}
+
+        print(f"正在获取 Feedback Knowledge Base: {knowledge_base_url}")
+        soup = self.fetch_page(knowledge_base_url)
+        if not soup:
+            return {}
+
+        sections_data = self.parse_knowledge_base(soup)
+
+        # 从配置中获取需要爬取的分类
+        configured_sections = self.feedback_config.get('sections', [])
+
+        result = {}
+        for section_config in configured_sections:
+            if not section_config.get('enabled', True):
+                continue
+
+            section_name = section_config['name']
+            section_name_cn = section_config.get('name_cn', section_name)
+            articles_count = section_config.get('articles_count', limit_per_section)
+
+            if section_name in sections_data:
+                section_info = sections_data[section_name]
+                articles = section_info['articles'][:articles_count]
+
+                result[section_name] = {
+                    'name_cn': section_name_cn,
+                    'section_url': section_info['section_url'],
+                    'articles': articles
+                }
+
+        return result
+
+    def fetch_article_content(self, article_url):
+        """
+        获取文章完整内容
+
+        Args:
+            article_url: 文章URL
+
+        Returns:
+            文章数据字典
+        """
+        print(f"正在获取文章: {article_url}")
+        # 使用knowledge base URL作为referer
+        referer = self.feedback_config.get('knowledge_base_url', self.base_url)
+        soup = self.fetch_page(article_url, referer=referer)
+        if not soup:
+            return None
+
+        article_data = self.parse_article(soup)
+        article_data['url'] = article_url
+
+        return article_data
+
+
+def convert_feedback_html_to_blocks(html_content):
+    """
+    将 Feedback 文章的 HTML 内容转换为块结构（与主程序格式兼容）
+
+    Args:
+        html_content: HTML字符串
+
+    Returns:
+        块列表
+    """
+    soup = BeautifulSoup(html_content, 'html.parser')
+    blocks = []
+    block_id = 0
+
+    # 遍历所有主要元素
+    for elem in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol']):
+        block_id += 1
+
+        if elem.name in ['h1', 'h2', 'h3', 'h4']:
+            # 标题
+            blocks.append({
+                'id': block_id,
+                'type': 'heading',
+                'level': int(elem.name[1]),
+                'text': elem.get_text(strip=True)
+            })
+        elif elem.name == 'p':
+            # 段落
+            text = elem.get_text(strip=True)
+            if text:  # 跳过空段落
+                blocks.append({
+                    'id': block_id,
+                    'type': 'paragraph',
+                    'text': text
+                })
+        elif elem.name in ['ul', 'ol']:
+            # 列表
+            list_items = []
+            for li in elem.find_all('li', recursive=False):
+                list_items.append(li.get_text(strip=True))
+
+            if list_items:
+                blocks.append({
+                    'id': block_id,
+                    'type': 'list',
+                    'list_type': 'unordered' if elem.name == 'ul' else 'ordered',
+                    'items': list_items
+                })
+
+    return blocks
 
 
 # =============================================================================
@@ -1271,91 +1564,157 @@ def save_to_json(data):
     return True
 
 
-def main():
+def get_all_news_sources():
     """
-    主函数：获取并翻译 Minecraft 最新新闻
+    从所有数据源获取新闻列表（交互式模式）
 
-    工作流程：
-        1. 通过 API 获取最新新闻列表
-        2. 让用户选择要翻译的新闻（或自动选择最新的）
-        3. 解析文章页面，提取结构化内容
-        4. 翻译标题和内容
-        5. 保存为 JSON 文件
-
-    配置项：
-        - minecraft_api.timeout: 用户选择超时时间（秒），0 表示不等待
-        - minecraft_api.pageSize: 获取的新闻数量
+    Returns:
+        列表，每个元素包含：
+        {
+            'index': 全局序号,
+            'source': 数据源类型 ('minecraft_api' 或 'feedback'),
+            'section': 分类名称,
+            'section_cn': 中文分类名称,
+            'title': 文章标题,
+            'url': 文章URL,
+            'data': 原始数据
+        }
     """
+    all_news = []
+    index = 1
+
+    # 1. 获取 Minecraft API 新闻
     print("=" * 60)
-    print("Minecraft 新闻翻译工具")
+    print("正在获取 Minecraft API 新闻...")
     print("=" * 60)
-    print()
 
-    # 1. 获取新闻列表
-    print("[步骤 1/5] 获取最新新闻列表...")
-    news_list = get_latest_news_via_api()
-
-    if not news_list:
-        print("[错误] 无法获取新闻列表，程序退出")
-        return
-
-    page_size = CFG["minecraft_api"]["pageSize"]
-    print(f"\n获取到 {len(news_list)} 条新闻：")
-    for i, news in enumerate(news_list):
-        print(f"  {i+1}. {news['title']}")
-
-    # 2. 选择要翻译的新闻
-    print(f"\n[步骤 2/5] 选择要翻译的新闻...")
-    timeout = CFG.get("minecraft_api", {}).get("timeout", 0)
-
-    if timeout == 0:
-        # 自动选择最新的新闻
-        selected_news = news_list[0]
-        print(f"配置为自动模式（timeout=0），选择最新新闻: {selected_news['title']}")
+    api_news = get_latest_news_via_api()
+    if api_news:
+        print(f"[OK] 获取到 {len(api_news)} 条新闻")
+        for news in api_news:
+            all_news.append({
+                'index': index,
+                'source': 'minecraft_api',
+                'section': 'Minecraft API',
+                'section_cn': 'Minecraft 官网新闻',
+                'title': news['title'],
+                'url': news['url'],
+                'data': news
+            })
+            index += 1
     else:
-        # 等待用户输入
-        print(f"请在 {timeout} 秒内选择...")
-        start_time = time.time()
-        user_choice = None
+        print("[X] 未能获取 Minecraft API 新闻")
 
-        while time.time() - start_time < timeout:
-            try:
-                choice_input = input(f"请输入编号（1-{len(news_list)}），或按回车选择最新: ")
-                if choice_input.strip() == "":
-                    user_choice = 0
-                    print("选择最新新闻")
-                    break
-                choice_num = int(choice_input)
-                if 1 <= choice_num <= len(news_list):
-                    user_choice = choice_num - 1
-                    break
-                else:
-                    print(f"无效输入，请输入 1 到 {len(news_list)} 之间的数字")
-            except ValueError:
-                print("无效输入，请输入数字")
-            except KeyboardInterrupt:
-                print("\n用户取消，退出程序")
-                return
+    # 2. 获取 Feedback 网站新闻
+    feedback_config = CFG.get('feedback_site', {})
+    if feedback_config.get('enabled', False):
+        print("\n" + "=" * 60)
+        print("正在获取 Feedback 网站新闻...")
+        print("=" * 60)
 
-        if user_choice is None:
-            print(f"\n超时，自动选择最新新闻")
-            user_choice = 0
+        try:
+            scraper = FeedbackScraper(CFG)
+            feedback_sections = scraper.get_latest_articles()
 
-        selected_news = news_list[user_choice]
+            for section_name, section_data in feedback_sections.items():
+                section_cn = section_data['name_cn']
+                articles = section_data['articles']
 
-    print(f"已选择: {selected_news['title']}")
+                print(f"[OK] {section_cn}: {len(articles)} 条")
 
-    # 3. 解析文章页面
-    print(f"\n[步骤 3/5] 解析文章页面...")
-    article_data = parse_article_page(selected_news["url"])
+                for article in articles:
+                    all_news.append({
+                        'index': index,
+                        'source': 'feedback',
+                        'section': section_name,
+                        'section_cn': section_cn,
+                        'title': article['title'],
+                        'url': article['url'],
+                        'data': article
+                    })
+                    index += 1
+        except Exception as e:
+            print(f"[X] 获取 Feedback 新闻失败: {e}")
+
+    return all_news
+
+
+def display_news_list(all_news):
+    """
+    显示新闻列表（按分类分组）
+
+    Args:
+        all_news: 新闻列表
+    """
+    print("\n" + "=" * 60)
+    print("可用新闻列表")
+    print("=" * 60)
+
+    # 按分类分组
+    current_section = None
+    for news in all_news:
+        if news['section_cn'] != current_section:
+            current_section = news['section_cn']
+            section_count = sum(1 for n in all_news if n['section_cn'] == current_section)
+            print(f"\n【{current_section}】共 {section_count} 条：")
+
+        print(f"  {news['index']}. {news['title']}")
+
+    print("\n" + "=" * 60)
+
+
+def select_news(all_news):
+    """
+    让用户选择要翻译的新闻
+
+    Args:
+        all_news: 新闻列表
+
+    Returns:
+        选中的新闻，或 None
+    """
+    while True:
+        try:
+            choice_input = input(f"\n请输入要翻译的新闻序号（1-{len(all_news)}），或输入 q 退出: ").strip()
+
+            if choice_input.lower() == 'q':
+                return None
+
+            choice_num = int(choice_input)
+            if 1 <= choice_num <= len(all_news):
+                return all_news[choice_num - 1]
+            else:
+                print(f"[X] 无效输入，请输入 1 到 {len(all_news)} 之间的数字")
+        except ValueError:
+            print("[X] 无效输入，请输入数字")
+        except KeyboardInterrupt:
+            print("\n\n用户取消")
+            return None
+
+
+def process_minecraft_api_news(news):
+    """
+    处理 Minecraft API 新闻
+
+    Args:
+        news: 新闻数据
+
+    Returns:
+        处理后的完整数据
+    """
+    import sys
+    print(f"\n[步骤 1/3] 解析文章页面...")
+    sys.stdout.flush()
+    article_data = parse_article_page(news['url'])
 
     if not article_data:
-        print("[错误] 无法解析文章页面，程序退出")
-        return
+        print("[X] 无法解析文章页面")
+        sys.stdout.flush()
+        return None
 
-    # 4. 翻译标题
-    print(f"\n[步骤 4/5] 翻译标题...")
-    title_to_translate = article_data["title"] or selected_news["title"]
+    print(f"\n[步骤 2/3] 翻译标题...")
+    sys.stdout.flush()
+    title_to_translate = article_data["title"] or news['title']
     translated_title = translate_text(
         title_to_translate,
         system_prompt=CFG["prompts"]["translate_title_system"]
@@ -1364,9 +1723,10 @@ def main():
     if translated_title:
         print(f"原标题: {title_to_translate}")
         print(f"译标题: {translated_title}")
+        sys.stdout.flush()
 
-    # 5. 翻译内容
-    print(f"\n[步骤 5/5] 翻译内容...")
+    print(f"\n[步骤 3/3] 翻译内容...")
+    sys.stdout.flush()
     blocks = article_data.get("blocks", [])
     translate_blocks(blocks)
 
@@ -1378,25 +1738,200 @@ def main():
     full_data = {
         "title": title_to_translate,
         "translated_title": translated_title,
-        "release_date": article_data.get("release_date") or selected_news.get("release_date", ""),
-        "url": selected_news.get("url", ""),
-        "author": selected_news.get("author", ""),
-        "imageAltText": selected_news.get("imageAltText", ""),
-        "description": selected_news.get("description", ""),
+        "release_date": article_data.get("release_date") or news.get("release_date", ""),
+        "url": news.get("url", ""),
+        "author": news.get("author", ""),
+        "imageAltText": news.get("imageAltText", ""),
+        "description": news.get("description", ""),
         "header_image_url": article_data.get("header_image_url", ""),
         "blocks": blocks,
         "content": source_content,
-        "translated_content": translated_content
+        "translated_content": translated_content,
+        "source": "minecraft_api"
     }
 
-    # 保存文件
+    return full_data
+
+
+def process_feedback_news(news):
+    """
+    处理 Feedback 网站新闻
+
+    Args:
+        news: 新闻数据
+
+    Returns:
+        处理后的完整数据
+    """
+    import sys
+    print(f"\n[步骤 1/3] 获取文章内容...")
+    sys.stdout.flush()
+
+    scraper = FeedbackScraper(CFG)
+    article_content = scraper.fetch_article_content(news['url'])
+
+    if not article_content:
+        print("[X] 无法获取文章内容")
+        sys.stdout.flush()
+        return None
+
+    print(f"\n[步骤 2/3] 翻译标题...")
+    sys.stdout.flush()
+    title_to_translate = article_content['title']
+    translated_title = translate_text(
+        title_to_translate,
+        system_prompt=CFG["prompts"]["translate_title_system"]
+    ) or ""
+
+    if translated_title:
+        print(f"原标题: {title_to_translate}")
+        print(f"译标题: {translated_title}")
+        sys.stdout.flush()
+
+    print(f"\n[步骤 3/3] 翻译内容...")
+    sys.stdout.flush()
+
+    # 转换 HTML 为 blocks
+    blocks = convert_feedback_html_to_blocks(article_content['content'])
+
+    # 转换为主程序的 block 格式
+    formatted_blocks = []
+    for i, block in enumerate(blocks, 1):
+        block_id = f"b{i:04d}"
+
+        if block['type'] == 'heading':
+            formatted_blocks.append({
+                "id": block_id,
+                "type": "h" + str(block['level']),
+                "source_text": block['text'],
+                "translated_text": "",
+                "meta": {}
+            })
+        elif block['type'] == 'paragraph':
+            formatted_blocks.append({
+                "id": block_id,
+                "type": "p",
+                "source_text": block['text'],
+                "translated_text": "",
+                "meta": {}
+            })
+        elif block['type'] == 'list':
+            for item in block['items']:
+                formatted_blocks.append({
+                    "id": f"b{len(formatted_blocks)+1:04d}",
+                    "type": "li",
+                    "source_text": item,
+                    "translated_text": "",
+                    "meta": {}
+                })
+
+    # 翻译 blocks
+    translate_blocks(formatted_blocks)
+
+    # 生成纯文本版本
+    source_content = blocks_to_plaintext(formatted_blocks, field="source_text")
+    translated_content = blocks_to_plaintext(formatted_blocks, field="translated_text")
+
+    # 将相对 URL 转换为完整 URL
+    feedback_base_url = CFG.get('feedback_site', {}).get('base_url', 'https://feedback.minecraft.net')
+    full_url = urljoin(feedback_base_url, news['url'])
+
+    # 组装完整数据
+    full_data = {
+        "title": title_to_translate,
+        "translated_title": translated_title,
+        "release_date": article_content.get("posted_date", ""),
+        "url": full_url,
+        "section": news['section'],
+        "section_cn": news['section_cn'],
+        "blocks": formatted_blocks,
+        "content": source_content,
+        "translated_content": translated_content,
+        "source": "feedback"
+    }
+
+    return full_data
+
+
+def main():
+    """
+    主函数：交互式新闻翻译
+
+    工作流程：
+        1. 从多个数据源获取新闻列表
+        2. 用户交互式选择要翻译的新闻
+        3. 翻译并保存选中的新闻
+    """
+    # 设置输出编码为 UTF-8，并启用行缓冲
+    import sys
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
+
+    print("=" * 60)
+    print("Minecraft 新闻翻译工具 - 交互式版本")
+    print("=" * 60)
     print()
+    sys.stdout.flush()
+
+    # 1. 获取所有数据源的新闻列表
+    all_news = get_all_news_sources()
+
+    if not all_news:
+        print("\n[X] 未能获取任何新闻，程序退出")
+        sys.stdout.flush()
+        return
+
+    print(f"\n[OK] 共获取 {len(all_news)} 条新闻")
+    sys.stdout.flush()
+
+    # 2. 显示新闻列表
+    display_news_list(all_news)
+    sys.stdout.flush()
+
+    # 3. 用户选择
+    selected_news = select_news(all_news)
+
+    if not selected_news:
+        print("\n程序退出")
+        sys.stdout.flush()
+        return
+
+    print(f"\n[OK] 已选择: {selected_news['title']}")
+    print(f"  来源: {selected_news['section_cn']}")
+    print(f"  URL: {selected_news['url']}")
+    sys.stdout.flush()
+
+    # 4. 处理选中的新闻
+    print("\n" + "=" * 60)
+    print("开始处理新闻")
+    print("=" * 60)
+    sys.stdout.flush()
+
+    if selected_news['source'] == 'minecraft_api':
+        full_data = process_minecraft_api_news(selected_news['data'])
+    elif selected_news['source'] == 'feedback':
+        full_data = process_feedback_news(selected_news)
+    else:
+        print(f"[X] 未知的数据源类型: {selected_news['source']}")
+        sys.stdout.flush()
+        return
+
+    if not full_data:
+        print("\n[X] 处理失败")
+        sys.stdout.flush()
+        return
+
+    # 5. 保存文件
+    print("\n" + "=" * 60)
+    print("保存文件")
+    print("=" * 60)
+    sys.stdout.flush()
     save_to_json(full_data)
 
-    print()
+    print("\n" + "=" * 60)
+    print("[OK] 任务完成！")
     print("=" * 60)
-    print("任务完成！")
-    print("=" * 60)
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":
