@@ -1061,7 +1061,7 @@
       return `[${tag}]\n${li}\n[/list]`;
     }
 
-    if (type === 'h1') return `[size=7][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
+    if (type === 'h1') return `[size=6][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
     if (type === 'h2') return `[size=6][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
     if (type === 'h3') return `[size=5][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;
     if (type === 'h4') return `[size=4][b]${duo(escapeBB(trBB), escapeBB(srcBB))}[/b][/size]`;

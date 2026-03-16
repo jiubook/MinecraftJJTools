@@ -468,54 +468,28 @@ class FeedbackScraper:
         return article_data
 
 
-def convert_feedback_html_to_blocks(html_content):
+def convert_feedback_html_to_blocks(html_content, base_url=""):
     """
     将 Feedback 文章的 HTML 内容转换为块结构（与主程序格式兼容）
 
     Args:
         html_content: HTML字符串
+        base_url: 基础 URL，用于补全相对链接
 
     Returns:
         块列表
     """
     soup = BeautifulSoup(html_content, 'html.parser')
+
+    # 查找文章内容容器
+    article_body = soup.find('div', class_='article-body')
+    if not article_body:
+        # 如果没有找到 article-body，尝试直接解析整个内容
+        article_body = soup
+
+    # 使用新的 extract_blocks_in_order 函数提取 blocks
     blocks = []
-    block_id = 0
-
-    # 遍历所有主要元素
-    for elem in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol']):
-        block_id += 1
-
-        if elem.name in ['h1', 'h2', 'h3', 'h4']:
-            # 标题
-            blocks.append({
-                'id': block_id,
-                'type': 'heading',
-                'level': int(elem.name[1]),
-                'text': elem.get_text(strip=True)
-            })
-        elif elem.name == 'p':
-            # 段落
-            text = elem.get_text(strip=True)
-            if text:  # 跳过空段落
-                blocks.append({
-                    'id': block_id,
-                    'type': 'paragraph',
-                    'text': text
-                })
-        elif elem.name in ['ul', 'ol']:
-            # 列表
-            list_items = []
-            for li in elem.find_all('li', recursive=False):
-                list_items.append(li.get_text(strip=True))
-
-            if list_items:
-                blocks.append({
-                    'id': block_id,
-                    'type': 'list',
-                    'list_type': 'unordered' if elem.name == 'ul' else 'ordered',
-                    'items': list_items
-                })
+    extract_blocks_in_order(article_body, blocks, base_url=base_url)
 
     return blocks
 
@@ -777,14 +751,20 @@ def _normalize_whitespace(s: str) -> str:
     """
     if not s:
         return ""
-    return re.sub(r"\s+", " ", s).strip()
+    # 先将不间断空格（U+00A0）替换为占位符，避免被处理
+    s = s.replace("\u00A0", "<<<NBSP>>>")
+    # 合并连续的空白字符为单个空格
+    s = re.sub(r"\s+", " ", s).strip()
+    # 恢复不间断空格为普通空格
+    s = s.replace("<<<NBSP>>>", " ")
+    return s
 
 
-def _extract_text_preserve_links(tag: Tag, base_url: str = "") -> str:
+def _extract_text_preserve_links(tag: Tag, base_url: str = "", stop_at_lists: bool = False) -> str:
     """
     从 HTML 标签中提取文本，保留链接和换行
 
-    递归遍历 HTML 标签树，提取可翻译的文本内容。
+    递归遍历 HTML 标签���，提取可翻译的文本内容。
     特殊处理：
     - <a> 标签转换为 Markdown 链接格式 [text](url)
     - <br> 标签转换为换行符
@@ -794,6 +774,7 @@ def _extract_text_preserve_links(tag: Tag, base_url: str = "") -> str:
     Args:
         tag: BeautifulSoup 标签对象
         base_url: 基础 URL，用于补全相对链接
+        stop_at_lists: 是否在遇到列表标签时停止递归（用于避免提取嵌套列表内容）
 
     Returns:
         提取并格式化后的文本
@@ -814,6 +795,10 @@ def _extract_text_preserve_links(tag: Tag, base_url: str = "") -> str:
 
         tag_name = (node.name or "").lower()
 
+        # 如果设置了 stop_at_lists，遇到列表标签时停止
+        if stop_at_lists and tag_name in ("ul", "ol"):
+            return
+
         # 换行标签
         if tag_name == "br":
             parts.append("\n")
@@ -827,16 +812,22 @@ def _extract_text_preserve_links(tag: Tag, base_url: str = "") -> str:
             visible_text = _normalize_whitespace(node.get_text(" ", strip=True))
 
             if href and visible_text:
+                # 有链接和文本，转换为 Markdown 格式
                 parts.append(f"[{visible_text}]({href})")
+            elif href and not visible_text:
+                # 有链接但没有文本，直接使用链接
+                parts.append(f"<{href}>")
             elif visible_text:
+                # 有文本但没有链接，只保留文本
                 parts.append(visible_text)
             return
 
-        # 代码标签：用反引号包裹
+        # 代码标签：用反引号包裹，使用特殊标记保护空格
         if tag_name in ("code", "kbd", "samp"):
             code_text = _normalize_whitespace(node.get_text(" ", strip=True))
             if code_text:
-                parts.append(f"`{code_text}`")
+                # 使用 Unicode 不间断空格（U+00A0）来保护空格，避免被 normalize 处理掉
+                parts.append(f"\u00A0`{code_text}`\u00A0")
             return
 
         # 递归处理子节点
@@ -957,6 +948,15 @@ def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
 
         tag_name = (node.name or "").lower()
 
+        # 代码块（优先处理，避免被递归处理）
+        if tag_name == "pre":
+            code_text = node.get_text("\n", strip=True).strip()
+            if code_text:
+                # 将制表符转换为2个空格
+                code_text = code_text.replace('\t', '  ')
+                add_code_block(code_text)
+            return
+
         # 图片
         if tag_name == "img":
             add_img_block(node.get("src"), node.get("alt", ""))
@@ -979,9 +979,9 @@ def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
                             # 如果是嵌套列表，跳过（稍后递归处理）
                             if child_name in ("ul", "ol"):
                                 continue
-                            # 其他标签提取文本
+                            # 其他标签提取文本（停止在嵌套列表处）
                             else:
-                                text = _extract_text_preserve_links(child, base_url=base_url)
+                                text = _extract_text_preserve_links(child, base_url=base_url, stop_at_lists=True)
                                 if text:
                                     li_text_parts.append(text)
 
@@ -1001,6 +1001,8 @@ def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
         # 标题
         if tag_name in ("h1", "h2", "h3", "h4"):
             heading_text = _extract_text_preserve_links(node, base_url=base_url)
+            # 清理标题末尾的锚点链接（格式：<URL>）
+            heading_text = re.sub(r'<https?://[^>]+>$', '', heading_text).strip()
             add_text_block(tag_name, heading_text)
             return
 
@@ -1008,13 +1010,6 @@ def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
         if tag_name in ("p", "blockquote"):
             para_text = _extract_text_preserve_links(node, base_url=base_url)
             add_text_block(tag_name, para_text)
-            return
-
-        # 代码块
-        if tag_name == "pre":
-            code_text = node.get_text("\n", strip=True).strip()
-            if code_text:
-                add_code_block(code_text)
             return
 
         # 递归处理其他标签的子节点
@@ -1240,19 +1235,22 @@ def translate_blocks(blocks: list) -> list:
             # 代码块不翻译，直接使用原文
             block["translated_text"] = block.get("source_text", "")
 
-    # 提取需要翻译的文本
+    # 提取需要翻译的文本（使用索引而不是 ID 来避免重复 ID 问题）
     items_to_translate = []
-    for block in blocks:
+    block_index_map = {}  # 映射：翻译项索引 -> block 索引
+    for block_idx, block in enumerate(blocks):
         # 跳过图片和代码块
         if block.get("type") in ("img", "pre"):
             continue
         source_text = (block.get("source_text") or "").strip()
         if not source_text:
             continue
+        translate_idx = len(items_to_translate)
         items_to_translate.append({
-            "id": block.get("id"),
+            "id": f"t{translate_idx:04d}",  # 使用唯一的翻译索引 ID
             "text": source_text
         })
+        block_index_map[translate_idx] = block_idx
 
     if not items_to_translate:
         print("[翻译] 没有需要翻译的内容")
@@ -1270,7 +1268,7 @@ def translate_blocks(blocks: list) -> list:
 
     # 批量翻译
     system_prompt = CFG["prompts"]["translate_blocks_system"]
-    id_to_translation = {}
+    translate_idx_to_translation = {}  # 映射：翻译索引 -> 翻译文本
 
     def translate_batch(batch_index, batch):
         """翻译单个批次的函数（用于并发执行）"""
@@ -1302,12 +1300,26 @@ def translate_blocks(blocks: list) -> list:
         if isinstance(parsed_result, list):
             for obj in parsed_result:
                 if isinstance(obj, dict) and "id" in obj and "translated_text" in obj:
-                    batch_translations[str(obj["id"])] = str(obj["translated_text"])
+                    # 提取翻译索引（从 "t0001" 中提取数字）
+                    translate_id = str(obj["id"])
+                    if translate_id.startswith("t"):
+                        try:
+                            translate_idx = int(translate_id[1:])
+                            batch_translations[translate_idx] = str(obj["translated_text"])
+                        except ValueError:
+                            print(f"[翻译] 警告: 无法解析翻译 ID: {translate_id}")
         else:
-            # 降级处理：按行匹配
+            # 降级处理：按行匹配（使用批次中的顺序）
             lines = [line.strip() for line in translated_result.splitlines() if line.strip()]
             for item, line in zip(batch, lines):
-                batch_translations[str(item["id"])] = line
+                # 从 item["id"] 中提取翻译索引
+                translate_id = str(item["id"])
+                if translate_id.startswith("t"):
+                    try:
+                        translate_idx = int(translate_id[1:])
+                        batch_translations[translate_idx] = line
+                    except ValueError:
+                        print(f"[翻译] 警告: 无法解析翻译 ID: {translate_id}")
 
         print(f"[翻译] 批次 {batch_index + 1}/{len(batches)}: 完成 {len(batch_translations)} 个项目")
         return batch_translations
@@ -1317,7 +1329,7 @@ def translate_blocks(blocks: list) -> list:
         # 串行执行
         for i, batch in enumerate(batches):
             batch_result = translate_batch(i, batch)
-            id_to_translation.update(batch_result)
+            translate_idx_to_translation.update(batch_result)
     else:
         # 并发执行
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -1331,17 +1343,16 @@ def translate_blocks(blocks: list) -> list:
             for future in as_completed(future_to_batch):
                 try:
                     batch_result = future.result()
-                    id_to_translation.update(batch_result)
+                    translate_idx_to_translation.update(batch_result)
                 except Exception as e:
                     batch_index, batch = future_to_batch[future]
                     print(f"[翻译] 错误: 批次 {batch_index + 1} 执行异常: {e}")
 
-    # 将翻译结果填充回 blocks
+    # 将翻译结果填充回 blocks（使用索引映射）
     translated_count = 0
-    for block in blocks:
-        block_id = str(block.get("id"))
-        if block_id in id_to_translation:
-            block["translated_text"] = id_to_translation[block_id]
+    for translate_idx, block_idx in block_index_map.items():
+        if translate_idx in translate_idx_to_translation:
+            blocks[block_idx]["translated_text"] = translate_idx_to_translation[translate_idx]
             translated_count += 1
 
     print(f"[翻译] 完成，成功翻译 {translated_count}/{len(items_to_translate)} 个文本块")
@@ -1487,6 +1498,25 @@ def download_header_image(image_url, save_path):
     return False
 
 
+def reindex_blocks(blocks: list) -> list:
+    """
+    重新分配 blocks 的 ID，确保 ID 唯一且连续
+
+    Args:
+        blocks: 内容块列表
+
+    Returns:
+        list: 重新分配 ID 后的内容块列表
+    """
+    if not blocks:
+        return blocks
+
+    for i, block in enumerate(blocks):
+        block["id"] = f"b{i+1:04d}"
+
+    return blocks
+
+
 def save_to_json(data):
     """
     将新闻数据保存为 JSON 文件
@@ -1500,6 +1530,18 @@ def save_to_json(data):
     if not data:
         print("[保存] 无内容可保存")
         return False
+
+    # 重新分配 blocks 的 ID，确保唯一性和连续性
+    if "blocks" in data and isinstance(data["blocks"], list):
+        data["blocks"] = reindex_blocks(data["blocks"])
+        print(f"[保存] 已重新排序 {len(data['blocks'])} 个 block 的 ID")
+
+        # 清理 translated_text 中多余的转义
+        for block in data["blocks"]:
+            if "translated_text" in block and block["translated_text"]:
+                # 将 \\\" 替换为 \"（清理多余的反斜杠转义）
+                block["translated_text"] = block["translated_text"].replace('\\\\"', '"')
+        print(f"[保存] 已清理翻译文本中的多余转义")
 
     title = data.get("title", "untitled")
     release_date = data.get("release_date", "")
@@ -1791,50 +1833,19 @@ def process_feedback_news(news):
     print(f"\n[步骤 3/3] 翻译内容...")
     sys.stdout.flush()
 
-    # 转换 HTML 为 blocks
-    blocks = convert_feedback_html_to_blocks(article_content['content'])
-
-    # 转换为主程序的 block 格式
-    formatted_blocks = []
-    for i, block in enumerate(blocks, 1):
-        block_id = f"b{i:04d}"
-
-        if block['type'] == 'heading':
-            formatted_blocks.append({
-                "id": block_id,
-                "type": "h" + str(block['level']),
-                "source_text": block['text'],
-                "translated_text": "",
-                "meta": {}
-            })
-        elif block['type'] == 'paragraph':
-            formatted_blocks.append({
-                "id": block_id,
-                "type": "p",
-                "source_text": block['text'],
-                "translated_text": "",
-                "meta": {}
-            })
-        elif block['type'] == 'list':
-            for item in block['items']:
-                formatted_blocks.append({
-                    "id": f"b{len(formatted_blocks)+1:04d}",
-                    "type": "li",
-                    "source_text": item,
-                    "translated_text": "",
-                    "meta": {}
-                })
-
-    # 翻译 blocks
-    translate_blocks(formatted_blocks)
-
-    # 生成纯文本版本
-    source_content = blocks_to_plaintext(formatted_blocks, field="source_text")
-    translated_content = blocks_to_plaintext(formatted_blocks, field="translated_text")
-
-    # 将相对 URL 转换为完整 URL
+    # 将相对 URL 转换为完整 URL（用于补全链接）
     feedback_base_url = CFG.get('feedback_site', {}).get('base_url', 'https://feedback.minecraft.net')
     full_url = urljoin(feedback_base_url, news['url'])
+
+    # 转换 HTML 为 blocks（使用新的解析逻辑）
+    blocks = convert_feedback_html_to_blocks(article_content['content'], base_url=full_url)
+
+    # blocks 已经是正确的格式，直接翻译
+    translate_blocks(blocks)
+
+    # 生成纯文本版本
+    source_content = blocks_to_plaintext(blocks, field="source_text")
+    translated_content = blocks_to_plaintext(blocks, field="translated_text")
 
     # 组装完整数据
     full_data = {
@@ -1844,7 +1855,7 @@ def process_feedback_news(news):
         "url": full_url,
         "section": news['section'],
         "section_cn": news['section_cn'],
-        "blocks": formatted_blocks,
+        "blocks": blocks,
         "content": source_content,
         "translated_content": translated_content,
         "source": "feedback"

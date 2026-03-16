@@ -323,48 +323,24 @@ pip install curl_cffi>=0.5.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ## 🆕 版本更新
 
-### v0.1.2 新增功能
+### v0.1.3 (2026-03-16)
 
-1. **Feedback 网站爬虫功能**
-   - 支持从 feedback.minecraft.net 获取更新日志
-   - 支持多个分类：正式版、测试版、快照版、教育版
-   - 使用 curl_cffi 绕过 Cloudflare 防护
-   - 可配置每个分类的启用状态和获取数量
+**核心改进**：优化了Feedback网站内容解析质量和数据一致性
 
-2. **新增依赖库**
-   - curl_cffi >= 0.5.0（用于 Feedback 网站爬取）
+- 改进HTML解析逻辑，提升内容提取准确性
+- 优化链接处理和Markdown格式转换
+- 新增blocks ID自动重排，确保数据唯一性
+- 改进代码块和嵌套列表的处理
+- 自动清理翻译文本中的多余转义字符
 
-3. **配置优化**
-   - 新增 `feedback_site` 配置块
-   - 支持自定义各类更新日志的获取策略
+### v0.1.2 (2026-03-16)
 
-### v0.1.2 配置说明
+**重大更新**：新增Feedback网站爬虫功能
 
-在 `config.json` 中新增以下配置项：
-
-```json
-"feedback_site": {
-  "enabled": true,                    // 是否启用 Feedback 网站爬取
-  "base_url": "https://feedback.minecraft.net",
-  "sections": [
-    {
-      "name": "Release Changelogs",
-      "name_cn": "正式版更新日志",
-      "section_id": "360001186971",
-      "enabled": true,                // 是否启用该分类
-      "articles_count": 6             // 获取文章数量
-    },
-    {
-      "name": "Beta and Preview Information and Changelogs",
-      "name_cn": "测试版更新日志",
-      "section_id": "360001185332",
-      "enabled": true,
-      "articles_count": 6
-    }
-    // ... 更多分类
-  ]
-}
-```
+- 支持从 feedback.minecraft.net 获取更新日志
+- 支持多分类：正式版、测试版、快照版、教育版
+- 使用 curl_cffi 绕过 Cloudflare 防护
+- 新增 `feedback_site` 配置块，可自定义各分类获取策略
 
 ### v0.1.1 新增功能
 
