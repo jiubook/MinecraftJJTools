@@ -1,8 +1,14 @@
-# Minecraft 新闻翻译工具 - 使用说明
+# Minecraft 新闻翻译工具 - 使用说明 (v0.1.1)
 
 ## 📋 功能介绍
 
 本工具可以自动获取 Minecraft 官方网站的最新新闻，并使用 AI 翻译成简体中文。
+
+### v0.1.1 新增功能
+
+- ✨ **翻译自动重试机制**：翻译失败时自动重试，提高成功率
+- ⚡ **并发翻译支持**：多线程并发翻译，大幅提升翻译速度
+- 📋 **嵌套列表支持**：J2MM 工具支持多层级列表渲染
 
 ## 🚀 快速开始
 
@@ -46,7 +52,29 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
    }
    ```
 
-3. **其他配置**：
+3. **重试和并发配置**（v0.1.1 新增）：
+   ```json
+   "retry": {
+     "translation": {
+       "max_retries": 3,           // 翻译失败时的最大重试次数
+       "wait_for_input": false     // 多次失败后是否等待用户输入
+     },
+     "download": {
+       "max_retries": 3,           // 下载失败时的最大重试次数
+       "wait_for_input": true      // 多次失败后是否等待用户输入
+     }
+   },
+   "concurrency": {
+     "translation_workers": 3      // 翻译时的并发线程数（1=串行，>1=并发）
+   }
+   ```
+
+   **说明**：
+   - `max_retries` - 失败后的最大重试次数（建议 3-5 次）
+   - `wait_for_input` - 多次失败后是否暂停等待用户输入
+   - `translation_workers` - 并发翻译的线程数（1=串行翻译，建议 2-5）
+
+4. **其他配置**：
    - `pageSize`: 获取的新闻数量（默认 20）
    - `timeout`: 用户选择超时时间（0 表示自动选择最新）
    - `save_dir`: 保存目录（默认 minecraft_news）
@@ -106,6 +134,11 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 - 网络连接问题（检查代理设置）
 - API 额度不足
 
+**v0.1.1 改进**：
+- 程序会自动重试失败的翻译（默认最多 3 次）
+- 可在 `config.json` 中调整 `retry.translation.max_retries` 配置
+- 如需手动干预，可设置 `retry.translation.wait_for_input` 为 `true`
+
 ### 4. 中文乱码
 
 **解决方法**：
@@ -120,9 +153,29 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 - `translated_title` - 译标题
 - `release_date` - 发布日期
 - `url` - 原文链接
-- `blocks` - 结构化内容块
+- `blocks` - 结构化内容块（v0.1.1 支持嵌套列表）
 - `content` - 原文纯文本
 - `translated_content` - 译文纯文本
+
+## ⚡ 性能优化 (v0.1.1)
+
+### 并发翻译
+
+通过配置 `concurrency.translation_workers` 可以启用多线程并发翻译：
+
+- `translation_workers: 1` - 串行翻译（默认，适合 API 限流严格的情况）
+- `translation_workers: 3` - 3 个线程并发（推荐，速度提升约 3 倍）
+- `translation_workers: 5` - 5 个线程并发（适合 API 性能好的情况）
+
+**注意**：并发数过高可能触发 API 限流，建议根据实际情况调整。
+
+### 自动重试
+
+翻译失败时会自动重试，无需手动重新运行：
+
+- 默认最多重试 3 次
+- 可通过 `retry.translation.max_retries` 调整
+- 设置 `retry.translation.wait_for_input: true` 可在多次失败后暂停等待用户输入
 
 ## 📧 联系方式
 

@@ -32,5 +32,18 @@
   },
   "output": {
     "save_dir": "minecraft_news"
+  },
+  "retry": {
+    "translation": {
+      "max_retries": 3,
+      "wait_for_input": false
+    },
+    "download": {
+      "max_retries": 3,
+      "wait_for_input": true
+    }
+  },
+  "concurrency": {
+    "translation_workers": 3
   }
 }

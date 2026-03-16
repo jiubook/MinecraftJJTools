@@ -42,7 +42,7 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
 {
   "title": "原标题",
   "translated_title": "翻译后的标题",
-  "release_date": "2026-02-18T15:00:34Z",
+  "release_date": "2026-02-18T00:00:00Z",
   "url": "https://...",
   "author": "Staff",
   "blocks": [
@@ -68,11 +68,12 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
 Markdown 格式：
 ```markdown
 **NEWS**
-# 迈向 Vibrant Visuals 的又一步
-_Another step towards Vibrant Visuals_
-- 时间：2026/2/18 23:00:34
+# 迈向 ... 的又一步
+_Another step towards ..._
+- 时间：2026/2/18 00:00:00
 - 作者：Staff
 - 原文：https://...
+- 简介：We’re still hard at work...
 ---
 我们仍在努力...
 > We're still hard at work...
@@ -81,7 +82,12 @@ _Another step towards Vibrant Visuals_
 BBCode 格式：
 ```bbcode
 [align=center][size=5][b]NEWS[/b][/size][/align]
-[align=center][size=6][b]迈向 Vibrant Visuals 的又一步[/b][/size][/align]
+[align=center][size=6][b]迈向 ... 的又一步[/b][/size][/align]
+[align=center][size=4]Another step towards ...[/size][/align]
+[quote][b]时间：[/b] 2026/2/18 00:00:00
+[b]作者：[/b] Staff
+[b]原文：[/b] [url=https://...]https://...[/url]
+[b]简介：[/b][i]We’re still hard at work...[/i][/quote]
 [hr]
 我们仍在努力...
 [color=#bcbcbc]We're still hard at work...[/color]
@@ -126,10 +132,33 @@ BBCode 格式：
 - 如需使用代理，填写代理地址（如 `http://127.0.0.1:7890`）
 - 如不使用代理，留空即可（`""`）
 
-#### 3. 其他配置
+#### 3. 重试和并发配置（v0.1.1 新增）
 
 ```json
-"pageSize": 20,           // 获取的新闻数量
+"retry": {
+  "translation": {
+    "max_retries": 3,           // 翻译失败时的最大重试次数
+    "wait_for_input": false     // 多次失败后是否等待用户输入（True=等待，False=直接跳过）
+  },
+  "download": {
+    "max_retries": 3,           // 下载头图失败时的最大重试次数
+    "wait_for_input": true      // 多次失败后是否等待用户输入（True=等待，False=直接跳过）
+  }
+},
+"concurrency": {
+  "translation_workers": 3      // 翻译时的并发线程数（1=串行，>1=并发）
+}
+```
+
+**说明**：
+- `max_retries` - 失败后的最大重试次数（建议 3-5 次）
+- `wait_for_input` - 多次失败后是否暂停等待用户输入（True=等待，False=自动跳过）
+- `translation_workers` - 并发翻译的线程数（1=串行翻译，3=3个线程并发，建议 2-5）
+
+#### 4. 其他配置
+
+```json
+"pageSize": 20,           // 获取的新闻数量（不可超过24）
 "timeout": 0,             // 用户选择超时时间（0 表示自动选择最新）
 "save_dir": "minecraft_news"  // 保存目录
 ```
@@ -158,16 +187,17 @@ pip install -r requirements.txt
 
 ```
 MinecraftJJTools/
-├── JBAiGNN_JiuBookAiGetNewestNews.py  # 主程序（Python）
-├── J2MM_JsonToMcbbsMarkdown.html      # 格式转换工具（HTML）
-├── J2MM.js                             # 格式转换核心脚本
-├── config.json                         # 配置文件
-├── requirements.txt                    # 依赖库列表
-├── START.BAT                           # 自动安装启动脚本（推荐新手）
-├── START_QUICK.BAT                     # 快速启动脚本（适合已配置环境）
-├── JBAiGNN_使用说明.md                 # JBAiGNN 详细使用说明
+├── JBAiGNN_JiuBookAiGetNewestNews.py   # JBAiGNN 主程序（Python）
+├── J2MM_JsonToMcbbsMarkdown.html       # J2MM 格式转换工具（HTML）
+├── J2MM.js                             # J2MM 格式转换核心脚本
+├── J2MM.css                            # J2MM 网页样式
+├── config.json                         # JBAiGNN 配置文件
+├── requirements.txt                    # JBAiGNN 依赖库列表
+├── START.BAT                           # JBAiGNN 自动安装启动脚本（推荐新手）
+├── START_QUICK.BAT                     # JBAiGNN 快速启动脚本（适合已配置环境）
+├── JBAiGNN_使用说明.md                  # JBAiGNN 详细使用说明
 ├── README.md                           # 本文件
-└── minecraft_news/                     # 翻译结果保存目录
+└── /minecraft_news/                    # JBAiGNN 翻译结果保存目录
 ```
 
 ## ❓ 常见问题
@@ -221,12 +251,54 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 5. **格式转换**：使用 J2MM 工具将 JSON 转换为所需格式
 6. **发布内容**：将转换后的内容发布到论坛或博客
 
+## 🆕 版本更新 (v0.1.1)
+
+### 新增功能
+
+1. **翻译自动重试机制**
+   - 翻译失败时自动重试，提高成功率
+   - 可配置最大重试次数（默认 3 次）
+   - 支持失败后等待用户输入或自动跳过
+
+2. **并发翻译支持**
+   - 支持多线程并发翻译，大幅提升翻译速度
+   - 可配置并发线程数（默认 3 个）
+   - 适合批量翻译多个新闻
+
+3. **嵌套列表支持**
+   - J2MM 工具新增多层级列表渲染
+   - 支持 BBCode 和 Markdown 格式的嵌套列表
+   - 自动识别列表缩进层级
+
+### 配置说明
+
+在 `config.json` 中新增以下配置项：
+
+```json
+"retry": {
+  "translation": {
+    "max_retries": 3,           // 翻译失败时的最大重试次数
+    "wait_for_input": false     // 多次失败后是否等待用户输入
+  },
+  "download": {
+    "max_retries": 3,           // 下载失败时的最大重试次数
+    "wait_for_input": true      // 多次失败后是否等待用户输入
+  }
+},
+"concurrency": {
+  "translation_workers": 3      // 翻译时的并发线程数（1=串行，>1=并发）
+}
+```
+
 ## 🚧 未来计划
 
 - [x] 逐句人工校对修改
 - [x] 头尾自定义模块
 - [x] 代理服务器支持
 - [x] 图片自动爬取
+- [x] 翻译自动重试机制
+- [x] 并发翻译支持
+- [x] 嵌套列表支持
 - [ ] GUI 图形界面
 - [ ] 整合为单个程序
 - [ ] Docker 容器化部署

@@ -787,9 +787,32 @@
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
-      const next = blocks[i + 1];
+      const blockType = String(block.type || 'p').toLowerCase();
+
+      // 如果是 li 类型，收集连续的 li blocks 并构建嵌套列表
+      if (blockType === 'li') {
+        const listBlocks = [];
+        let j = i;
+        while (j < blocks.length && String(blocks[j].type || 'p').toLowerCase() === 'li') {
+          listBlocks.push(blocks[j]);
+          j++;
+        }
+
+        // 渲染嵌套列表
+        out += renderNestedListBBCode(listBlocks) + '\n';
+
+        // 跳过已处理的 li blocks
+        i = j - 1;
+
+        const next = blocks[i + 1];
+        const nextType = next ? String(next.type || 'p').toLowerCase() : '';
+        if (['h1','h2'].includes(nextType)) out += `\n[hr]\n`;
+        continue;
+      }
+
       out += renderBlockBBCode(block) + '\n';
 
+      const next = blocks[i + 1];
       const nextType = next ? String(next.type || 'p').toLowerCase() : '';
       // 只在主要标题前添加分隔符
       if (['h1','h2'].includes(nextType)) out += `\n[hr]\n`;
@@ -850,6 +873,29 @@
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
+      const blockType = String(block.type || 'p').toLowerCase();
+
+      // 如果是 li 类型，收集连续的 li blocks 并构建嵌套列表
+      if (blockType === 'li') {
+        const listBlocks = [];
+        let j = i;
+        while (j < blocks.length && String(blocks[j].type || 'p').toLowerCase() === 'li') {
+          listBlocks.push(blocks[j]);
+          j++;
+        }
+
+        // 渲染嵌套列表
+        out += renderNestedListMarkdown(listBlocks) + '\n\n';
+
+        // 跳过已处理的 li blocks
+        i = j - 1;
+
+        const next = blocks[i + 1];
+        const nextType = next ? String(next.type || 'p').toLowerCase() : '';
+        if (['h1','h2'].includes(nextType)) out += `---\n\n`;
+        continue;
+      }
+
       const next = blocks[i + 1];
       out += renderBlockMarkdown(block) + '\n\n';
 
@@ -891,6 +937,100 @@
   // ----------------------------
   // block 渲染（正文）
   // ----------------------------
+  /**
+   * 渲染嵌套列表（BBCode格式）
+   * @param {Array} listBlocks - 连续的 li 类型 blocks
+   * @returns {string} BBCode格式的嵌套列表
+   */
+  function renderNestedListBBCode(listBlocks) {
+    if (!listBlocks || !listBlocks.length) return '';
+
+    const duo = (main, sub) => {
+      if (main && sub && main === sub) return main;
+      if (main && sub) return `${main}\n[color=#bcbcbc]${sub}[/color]`;
+      return main || sub || '';
+    };
+
+    let output = '';
+    let currentLevel = -1;
+    const levelStack = []; // 跟踪每个层级的开始位置
+
+    for (let i = 0; i < listBlocks.length; i++) {
+      const block = listBlocks[i];
+      const indentLevel = (block.meta && typeof block.meta.indent_level === 'number') ? block.meta.indent_level : 0;
+
+      const src = normalizeText(block.source_text || '');
+      const tr = normalizeText(block.translated_text || '');
+      const srcBB = mdLinksToBBCode(src);
+      const trBB = mdLinksToBBCode(tr);
+
+      // 如果层级增加，打开新的 [list]
+      while (indentLevel > currentLevel) {
+        output += '[list]\n';
+        currentLevel++;
+        levelStack.push(currentLevel);
+      }
+
+      // 如果层级减少，关闭 [/list]
+      while (indentLevel < currentLevel && levelStack.length > 0) {
+        output += '[/list]\n';
+        levelStack.pop();
+        currentLevel--;
+      }
+
+      // 添加列表项
+      const content = duo(escapeBB(trBB), escapeBB(srcBB));
+      output += `[*]${content}\n`;
+    }
+
+    // 关闭所有未关闭的 [list]
+    while (levelStack.length > 0) {
+      output += '[/list]\n';
+      levelStack.pop();
+    }
+
+    return output.trim();
+  }
+
+  /**
+   * 渲染嵌套列表（Markdown格式）
+   * @param {Array} listBlocks - 连续的 li 类型 blocks
+   * @returns {string} Markdown格式的嵌套列表
+   */
+  function renderNestedListMarkdown(listBlocks) {
+    if (!listBlocks || !listBlocks.length) return '';
+
+    let output = '';
+
+    for (let i = 0; i < listBlocks.length; i++) {
+      const block = listBlocks[i];
+      const indentLevel = (block.meta && typeof block.meta.indent_level === 'number') ? block.meta.indent_level : 0;
+
+      const src = normalizeText(block.source_text || '');
+      const tr = normalizeText(block.translated_text || '');
+
+      // 生成缩进（每层 4 个空格）
+      const indent = '    '.repeat(indentLevel);
+
+      // 如果译文和原文相同，只输出一次
+      if (tr && src && tr === src) {
+        output += `${indent}- ${tr}\n`;
+      } else if (tr && src) {
+        // 译文和原文都存在，输出两行
+        output += `${indent}- ${tr}\n`;
+        output += `${indent}- ${src}\n`;
+      } else if (tr) {
+        // 只有译文
+        output += `${indent}- ${tr}\n`;
+      } else if (src) {
+        // 只有原文
+        output += `${indent}- ${src}\n`;
+      }
+    }
+
+    return output.trim();
+  }
+
   function renderBlockBBCode(block) {
     const type = String(block.type || 'p').toLowerCase();
     const src = normalizeText(block.source_text || '');
@@ -933,7 +1073,15 @@
       if (!u) return alt ? `[i]${escapeBB(alt)}[/i]` : '';
       return `[align=center][img]${escapeBB(u)}[/img][/align]`;
     }
-    if (type === 'li') return duo(escapeBB(trBB), escapeBB(srcBB));
+    if (type === 'li') {
+      // li 应该由 renderNestedListBBCode 处理，这里只是后备
+      const duo = (main, sub) => {
+        if (main && sub && main === sub) return main;
+        if (main && sub) return `${main}\n[color=#bcbcbc]${sub}[/color]`;
+        return main || sub || '';
+      };
+      return `[*]${duo(escapeBB(trBB), escapeBB(srcBB))}`;
+    }
     return duo(escapeBB(trBB), escapeBB(srcBB));
   }
 
@@ -989,7 +1137,15 @@
       return u ? `\n![${alt}](${u})\n` : (alt ? `*${alt}*` : '');
     }
 
-    if (type === 'li') return duo(tr, src);
+    if (type === 'li') {
+      // li 应该由 renderNestedListMarkdown 处理，这里只是后备
+      const duo = (main, sub) => {
+        if (main && sub && main === sub) return main;
+        if (main && sub) return `${main}\n  > ${sub.replace(/\n/g, '\n  > ')}`;
+        return main || (sub ? `> ${sub.replace(/\n/g, '\n> ')}` : '');
+      };
+      return `- ${duo(tr, src)}`;
+    }
     return duo(tr, src);
   }
 
@@ -1132,7 +1288,19 @@
     s = s.replace(/\[url=([^\]]+)]([\s\S]*?)\[\/url]/gi, (_, url, text) => `[${text.trim()}](${url.trim()})`);
 
     // 基础样式
-    s = s.replace(/\[b]([\s\S]*?)\[\/b]/gi, '**$1**');
+    // [b] 标签：如果包含换行符，在每一行分别添加 **
+    s = s.replace(/\[b]([\s\S]*?)\[\/b]/gi, (match, inner) => {
+      if (/\n/.test(inner)) {
+        // 包含换行符，在每一行分别添加 **
+        return inner.split('\n').map(line => {
+          const trimmed = line.trim();
+          return trimmed ? `**${trimmed}**` : '';
+        }).join('\n');
+      } else {
+        // 单行，直接添加 **
+        return `**${inner}**`;
+      }
+    });
     s = s.replace(/\[i]([\s\S]*?)\[\/i]/gi, '*$1*');
     s = s.replace(/\[s]([\s\S]*?)\[\/s]/gi, '~~$1~~');
     s = s.replace(/\[u]([\s\S]*?)\[\/u]/gi, '<u>$1</u>');
@@ -1153,12 +1321,21 @@
     // size -> 标题（简单映射）
     s = s.replace(/\[size=(\d+)]([\s\S]*?)\[\/size]/gi, (_, size, inner) => {
       const n = parseInt(size, 10);
-      const t = stripNewlines(inner);
-      if (n >= 7) return `# ${t}`;
-      if (n === 6) return `## ${t}`;
-      if (n === 5) return `### ${t}`;
-      if (n === 4) return `#### ${t}`;
-      return t;
+      // 检查内容是否包含换行符
+      const hasNewlines = /\n/.test(inner);
+
+      if (hasNewlines) {
+        // 如果包含换行符，保留原样（只移除 size 标签）
+        return inner;
+      } else {
+        // 如果是单行，尝试转换为标题
+        const t = stripNewlines(inner);
+        if (n >= 7) return `# ${t}`;
+        if (n === 6) return `## ${t}`;
+        if (n === 5) return `### ${t}`;
+        if (n === 4) return `#### ${t}`;
+        return t;
+      }
     });
 
     // 列表：支持 [list] 和 [list=1]
@@ -1203,6 +1380,10 @@
     });
     // 清理残留的 [*]
     s = s.replace(/^\s*\[\*]\s*/gm, '- ');
+
+    // 将单个换行符转换为 Markdown 硬换行（行尾两个空格）
+    // 但要避免影响已经是双换行的情况
+    s = s.replace(/([^\n])\n(?!\n)/g, '$1  \n');
 
     return s;
   }
@@ -1264,13 +1445,28 @@
     html = html.replace(/\[code]([\s\S]*?)\[\/code]/gi, '<pre><code>$1</code></pre>');
     html = html.replace(/\[hr]/gi, '<hr />');
 
-    // lists
-    html = html.replace(/\[list]([\s\S]*?)\[\/list]/gi, '<ul>$1</ul>');
-    html = html.replace(/\[list=1]([\s\S]*?)\[\/list]/gi, '<ol>$1</ol>');
-    html = html.replace(/\[\*]/g, '<li>');
+    // lists - 递归处理嵌套列表，从内到外
+    // 循环处理直到所有 [list] 标签都被转换
+    let maxIterations = 10; // 防止无限循环
+    while ((html.includes('[list]') || html.includes('[list=1]')) && maxIterations-- > 0) {
+      // 先处理有序列表
+      html = html.replace(/\[list=1]([\s\S]*?)\[\/list]/gi, (match, inner) => {
+        // 处理有序列表
+        const items = inner.split(/\[\*\]/).map(x => x.trim()).filter(x => x.length > 0);
+        const liItems = items.map(item => `<li>${item}</li>`).join('');
+        return `<ol>${liItems}</ol>`;
+      });
+      // 再处理无序列表
+      html = html.replace(/\[list]([\s\S]*?)\[\/list]/gi, (match, inner) => {
+        // 处理无序列表
+        const items = inner.split(/\[\*\]/).map(x => x.trim()).filter(x => x.length > 0);
+        const liItems = items.map(item => `<li>${item}</li>`).join('');
+        return `<ul>${liItems}</ul>`;
+      });
+    }
 
-    // 关闭 li（把 <li>... 补上 </li>）
-    html = html.replace(/<li>([\s\S]*?)(?=<li>|<\/ul>|<\/ol>|$)/g, '<li>$1</li>');
+    // 清理残留的 [*] 标签（如果有的话）
+    html = html.replace(/\[\*\]/g, '');
 
     // 换行：保留视觉效果（注意 code/pre 内也会有 <br>，但不影响预览）
     html = html.replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
@@ -1284,6 +1480,12 @@
         .replace(/(<\/li>)(<br\s*\/?>)+(<li>)/gi, '$1$3');  // 删除 li 之间的 <br>
       return `<${tag}>${cleaned}</${tag}>`;
     });
+
+    // 清理空的 <li> 标签（只包含空白字符或 <br> 的 li）
+    html = html.replace(/<li>(\s|<br\s*\/?>)*<\/li>/gi, '');
+
+    // 清理标题标签后的 <br>（h1-h6）
+    html = html.replace(/(<\/h[1-6]>)(<br\s*\/?>)+/gi, '$1');
 
     return html;
   }

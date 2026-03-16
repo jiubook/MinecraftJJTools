@@ -30,6 +30,7 @@ import hashlib
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup, NavigableString, Tag
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 禁用 SSL 警告（如果配置中关闭了 SSL 验证）
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -107,6 +108,23 @@ DEFAULT_CONFIG = {
     # 输出配置
     "output": {
         "save_dir": "minecraft_news"            # 保存目录
+    },
+
+    # 重试配置
+    "retry": {
+        "translation": {
+            "max_retries": 3,                   # 翻译失败时的最大重试次数
+            "wait_for_input": False             # 多次失败后是否等待用户输入（True=等待，False=直接跳过）
+        },
+        "download": {
+            "max_retries": 3,                   # 下载失败时的最大重试次数
+            "wait_for_input": True              # 多次失败后是否等待用户输入（True=等待，False=直接跳过）
+        }
+    },
+
+    # 并发配置
+    "concurrency": {
+        "translation_workers": 3                # 翻译时的并发线程数（1=串行，>1=并发）
     }
 }
 
@@ -219,7 +237,7 @@ HEADERS_HTML = {
 
 def translate_text(text, system_prompt=None):
     """
-    调用 OpenAI 兼容的 API 进行文本翻译
+    调用 OpenAI 兼容的 API 进行文本翻译（支持自动重试）
 
     通过配置文件中指定的 API 端点进行翻译。
     支持任何兼容 OpenAI Chat Completions 格式的 API。
@@ -236,6 +254,8 @@ def translate_text(text, system_prompt=None):
         - openai_compat.endpoint: API 端点路径
         - openai_compat.api_key: API 密钥
         - openai_compat.model: 模型名称
+        - retry.translation.max_retries: 最大重试次数
+        - retry.translation.wait_for_input: 是否等待用户输入
     """
     print(f"[翻译] 正在翻译: {text[:50]}...")
 
@@ -248,6 +268,8 @@ def translate_text(text, system_prompt=None):
     max_tokens = int(CFG["openai_compat"].get("max_tokens", 10000))
     timeout = int(CFG["openai_compat"].get("timeout", 120))
     verify_ssl = CFG["http"]["verify_ssl"]
+    max_retries = int(CFG.get("retry", {}).get("translation", {}).get("max_retries", 3))
+    wait_for_input = CFG.get("retry", {}).get("translation", {}).get("wait_for_input", False)
 
     # 验证必要的配置项
     if not api_key or "********" in api_key:
@@ -282,46 +304,85 @@ def translate_text(text, system_prompt=None):
         "max_tokens": max_tokens
     }
 
-    # 发送请求
-    try:
-        print(f"[翻译] 请求超时设置: {timeout}秒")
-        response = requests.post(
-            api_url,
-            json=payload,
-            headers=headers,
-            timeout=timeout,
-            verify=verify_ssl,
-            proxies=PROXIES
-        )
-        response.raise_for_status()
+    # 重试循环
+    retry_count = 0
+    while retry_count <= max_retries:
+        try:
+            if retry_count > 0:
+                print(f"[翻译] 第 {retry_count} 次重试...")
+            else:
+                print(f"[翻译] 请求超时设置: {timeout}秒")
 
-        # 解析响应
-        result = response.json()
-        content = result["choices"][0]["message"]["content"]
-        print(f"[翻译] 成功: {content[:50]}...")
-        return content
+            response = requests.post(
+                api_url,
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+                verify=verify_ssl,
+                proxies=PROXIES
+            )
+            response.raise_for_status()
 
-    except requests.exceptions.Timeout:
-        print(f"[翻译] 请求超时（{timeout}秒）")
-        return None
-    except requests.exceptions.ConnectionError as e:
-        print(f"[翻译] 连接失败: {e}")
-        return None
-    except requests.exceptions.HTTPError as e:
-        print(f"[翻译] HTTP 错误: {e}")
-        if hasattr(response, 'text'):
-            print(f"[翻译] 响应内容: {response.text[:200]}")
-        return None
-    except (KeyError, IndexError) as e:
-        print(f"[翻译] 响应格式错误: {e}")
-        if 'response' in locals():
-            print(f"[翻译] 原始响应: {response.text[:200]}")
-        return None
-    except json.JSONDecodeError as e:
-        print(f"[翻译] JSON 解析失败: {e}")
-        if 'response' in locals():
-            print(f"[翻译] 原始响应: {response.text[:200]}")
-        return None
+            # 解析响应
+            result = response.json()
+            content = result["choices"][0]["message"]["content"]
+            print(f"[翻译] 成功: {content[:50]}...")
+            return content
+
+        except requests.exceptions.Timeout:
+            print(f"[翻译] 请求超时（{timeout}秒）")
+        except requests.exceptions.ConnectionError as e:
+            print(f"[翻译] 连接失败: {e}")
+        except requests.exceptions.HTTPError as e:
+            print(f"[翻译] HTTP 错误: {e}")
+            if 'response' in locals() and hasattr(response, 'text'):
+                print(f"[翻译] 响应内容: {response.text[:200]}")
+        except (KeyError, IndexError) as e:
+            print(f"[翻译] 响应格式错误: {e}")
+            if 'response' in locals() and hasattr(response, 'text'):
+                print(f"[翻译] 原始响应: {response.text[:200]}")
+            return None  # 响应格式错误不重试
+        except json.JSONDecodeError as e:
+            print(f"[翻译] JSON 解析失败: {e}")
+            if 'response' in locals() and hasattr(response, 'text'):
+                print(f"[翻译] 原始响应: {response.text[:200]}")
+            return None  # JSON解析错误不重试
+
+        retry_count += 1
+
+        # 如果还没达到最大重试次数，等待后重试
+        if retry_count <= max_retries:
+            wait_time = retry_count * 2  # 递增等待时间：2秒、4秒、6秒
+            print(f"[翻译] 等待 {wait_time} 秒后重试...")
+            time.sleep(wait_time)
+        else:
+            # 所有自动重试都失败
+            print(f"\n[翻译] 已尝试 {max_retries + 1} 次，均失败")
+            print(f"[翻译] 文本内容: {text[:100]}...")
+
+            # 根据配置决定是否等待用户输入
+            if wait_for_input:
+                print("[翻译] 请选择：")
+                print("  1. 继续尝试翻译")
+                print("  2. 跳过此内容")
+
+                try:
+                    choice = input("请输入选项（1 或 2）: ").strip()
+                    if choice == "1":
+                        print("[翻译] 继续尝试...")
+                        retry_count = 0  # 重置重试计数
+                        continue
+                    else:
+                        print("[翻译] 已跳过此内容")
+                        return None
+                except KeyboardInterrupt:
+                    print("\n[翻译] 用户取消，跳过翻译")
+                    return None
+            else:
+                print("[翻译] 已跳过此内容（配置为不等待用户输入）")
+                return None
+
+    return None
 
 
 # =============================================================================
@@ -552,6 +613,21 @@ def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
                 "meta": meta or {}
             })
 
+    def add_code_block(source_text: str, meta=None):
+        """添加代码块类型的 block（保持完整，不拆分行）"""
+        source_text = (source_text or "").strip()
+        if not source_text:
+            return
+
+        block_id = f"b{len(blocks)+1:04d}"
+        blocks.append({
+            "id": block_id,
+            "type": "pre",
+            "source_text": source_text,
+            "translated_text": "",
+            "meta": meta or {}
+        })
+
     def add_img_block(src: str, alt: str = "", meta=None):
         """添加图片类型的 block"""
         src = (src or "").strip()
@@ -593,11 +669,40 @@ def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
             add_img_block(node.get("src"), node.get("alt", ""))
             return
 
-        # 列表：提取每个列表项
+        # 列表：递归提取每个列表项（保留嵌套结构）
         if tag_name in ("ul", "ol"):
-            for li in node.find_all("li", recursive=False):
-                li_text = _extract_text_preserve_links(li, base_url=base_url)
-                add_text_block("li", li_text)
+            def process_list(list_node, indent_level=0):
+                """递归处理列表，保留嵌套层级"""
+                for li in list_node.find_all("li", recursive=False):
+                    # 提取 li 的直接文本内容（不包括嵌套列表）
+                    li_text_parts = []
+                    for child in li.children:
+                        if isinstance(child, NavigableString):
+                            text = _normalize_whitespace(str(child))
+                            if text:
+                                li_text_parts.append(text)
+                        elif isinstance(child, Tag):
+                            child_name = (child.name or "").lower()
+                            # 如果是嵌套列表，跳过（稍后递归处理）
+                            if child_name in ("ul", "ol"):
+                                continue
+                            # 其他标签提取文本
+                            else:
+                                text = _extract_text_preserve_links(child, base_url=base_url)
+                                if text:
+                                    li_text_parts.append(text)
+
+                    # 合并文本
+                    li_text = " ".join(li_text_parts).strip()
+                    if li_text:
+                        # 添加带缩进层级的 li block
+                        add_text_block("li", li_text, meta={"indent_level": indent_level})
+
+                    # 递归处理嵌套的列表
+                    for nested_list in li.find_all(["ul", "ol"], recursive=False):
+                        process_list(nested_list, indent_level + 1)
+
+            process_list(node, indent_level=0)
             return
 
         # 标题
@@ -616,7 +721,7 @@ def extract_blocks_in_order(container: Tag, blocks: list, base_url: str = ""):
         if tag_name == "pre":
             code_text = node.get_text("\n", strip=True).strip()
             if code_text:
-                add_text_block("pre", code_text)
+                add_code_block(code_text)
             return
 
         # 递归处理其他标签的子节点
@@ -724,9 +829,9 @@ def parse_article_page(article_url):
                 print(f"[解析] 处理容器（签名: {signature[:16]}...）")
             extract_blocks_in_order(container, blocks, base_url=article_url)
 
-        # 去除所有重复的 block（不仅仅是连续的）
+        # 只去除连续重复的 block（保留不同章节中的相同内容）
         deduplicated_blocks = []
-        seen_blocks = set()
+        prev_key = None
         for block in blocks:
             # 生成 block 的唯一键
             key = (
@@ -734,10 +839,11 @@ def parse_article_page(article_url):
                 (block.get("source_text") or "").strip(),
                 json.dumps(block.get("meta") or {}, sort_keys=True, ensure_ascii=False),
             )
-            if key in seen_blocks:
-                print(f"[解析] 跳过重复 block: {block.get('type')} - {(block.get('source_text') or '')[:50]}...")
-                continue  # 跳过重复的 block
-            seen_blocks.add(key)
+            # 只跳过与前一个block完全相同的连续重复
+            if key == prev_key:
+                print(f"[解析] 跳过连续重复 block: {block.get('type')} - {(block.get('source_text') or '')[:50]}...")
+                continue
+            prev_key = key
             deduplicated_blocks.append(block)
 
         # 重新编号 blocks，确保 ID 连续
@@ -811,10 +917,11 @@ def _chunk_items_for_translation(items, max_chars=1000, max_items=10):
 
 def translate_blocks(blocks: list) -> list:
     """
-    批量翻译内容块
+    批量翻译内容块（支持并发）
 
     将所有文本类型的 block 提取出来，分批调用翻译 API，
     然后将翻译结果填充回原 block 的 translated_text 字段。
+    支持多线程并发翻译以提高速度。
 
     Args:
         blocks: 内容块列表
@@ -824,18 +931,27 @@ def translate_blocks(blocks: list) -> list:
 
     处理逻辑：
         1. 提取所有需要翻译的文本（跳过图片）
-        2. 分批发送翻译请求
+        2. 分批发送翻译请求（支持并发）
         3. 解析翻译结果（支持 JSON 和纯文本格式）
         4. 将译文填充回对应的 block
+
+    配置要求：
+        - concurrency.translation_workers: 并发线程数（1=串行，>1=并发）
     """
     if not blocks:
         return blocks
 
+    # 先处理不需要翻译的内容（代码块直接复制原文）
+    for block in blocks:
+        if block.get("type") == "pre":
+            # 代码块不翻译，直接使用原文
+            block["translated_text"] = block.get("source_text", "")
+
     # 提取需要翻译的文本
     items_to_translate = []
     for block in blocks:
-        # 跳过图片
-        if block.get("type") == "img":
+        # 跳过图片和代码块
+        if block.get("type") in ("img", "pre"):
             continue
         source_text = (block.get("source_text") or "").strip()
         if not source_text:
@@ -851,17 +967,28 @@ def translate_blocks(blocks: list) -> list:
 
     print(f"[翻译] 开始翻译 {len(items_to_translate)} 个文本块")
 
+    # 获取并发配置
+    max_workers = int(CFG.get("concurrency", {}).get("translation_workers", 3))
+    print(f"[翻译] 使用 {max_workers} 个并发线程")
+
+    # 分批
+    batches = _chunk_items_for_translation(items_to_translate)
+    print(f"[翻译] 分为 {len(batches)} 个批次")
+
     # 批量翻译
     system_prompt = CFG["prompts"]["translate_blocks_system"]
     id_to_translation = {}
 
-    for batch in _chunk_items_for_translation(items_to_translate):
+    def translate_batch(batch_index, batch):
+        """翻译单个批次的函数（用于并发执行）"""
         batch_json = json.dumps(batch, ensure_ascii=False, indent=0)
+        print(f"[翻译] 批次 {batch_index + 1}/{len(batches)}: 翻译 {len(batch)} 个项目")
+
         translated_result = translate_text(batch_json, system_prompt=system_prompt)
 
         if not translated_result:
-            print(f"[翻译] 警告: 批次翻译失败，跳过 {len(batch)} 个项目")
-            continue
+            print(f"[翻译] 警告: 批次 {batch_index + 1} 翻译失败，跳过 {len(batch)} 个项目")
+            return {}
 
         # 尝试解析 JSON 格式的翻译结果
         parsed_result = None
@@ -875,18 +1002,46 @@ def translate_blocks(blocks: list) -> list:
             try:
                 parsed_result = json.loads(cleaned)
             except json.JSONDecodeError:
-                print("[翻译] 警告: JSON 解析失败，尝试按行匹配")
+                print(f"[翻译] 警告: 批次 {batch_index + 1} JSON 解析失败，尝试按行匹配")
 
         # 处理 JSON 格式的结果
+        batch_translations = {}
         if isinstance(parsed_result, list):
             for obj in parsed_result:
                 if isinstance(obj, dict) and "id" in obj and "translated_text" in obj:
-                    id_to_translation[str(obj["id"])] = str(obj["translated_text"])
+                    batch_translations[str(obj["id"])] = str(obj["translated_text"])
         else:
             # 降级处理：按行匹配
             lines = [line.strip() for line in translated_result.splitlines() if line.strip()]
             for item, line in zip(batch, lines):
-                id_to_translation[str(item["id"])] = line
+                batch_translations[str(item["id"])] = line
+
+        print(f"[翻译] 批次 {batch_index + 1}/{len(batches)}: 完成 {len(batch_translations)} 个项目")
+        return batch_translations
+
+    # 根据配置选择串行或并发执行
+    if max_workers <= 1:
+        # 串行执行
+        for i, batch in enumerate(batches):
+            batch_result = translate_batch(i, batch)
+            id_to_translation.update(batch_result)
+    else:
+        # 并发执行
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_batch = {
+                executor.submit(translate_batch, i, batch): (i, batch)
+                for i, batch in enumerate(batches)
+            }
+
+            # 收集结果
+            for future in as_completed(future_to_batch):
+                try:
+                    batch_result = future.result()
+                    id_to_translation.update(batch_result)
+                except Exception as e:
+                    batch_index, batch = future_to_batch[future]
+                    print(f"[翻译] 错误: 批次 {batch_index + 1} 执行异常: {e}")
 
     # 将翻译结果填充回 blocks
     translated_count = 0
@@ -942,7 +1097,7 @@ def blocks_to_plaintext(blocks: list, field: str = "source_text") -> str:
 
 def download_header_image(image_url, save_path):
     """
-    下载文章头图
+    下载文章头图（支持自动重试）
 
     Args:
         image_url: 图片URL
@@ -950,47 +1105,93 @@ def download_header_image(image_url, save_path):
 
     Returns:
         bool: 下载成功返回 True，失败返回 False
+
+    配置要求：
+        - retry.download.max_retries: 最大重试次数
+        - retry.download.wait_for_input: 是否等待用户输入
     """
     if not image_url:
         print("[下载] 没有头图URL，跳过下载")
         return False
 
-    try:
-        print(f"[下载] 正在下载头图: {image_url}")
-        response = requests.get(
-            image_url,
-            headers=HEADERS_HTML,
-            timeout=120,
-            verify=CFG["http"]["verify_ssl"],
-            proxies=PROXIES,
-            stream=True  # 使用流式下载，适合大文件
-        )
-        response.raise_for_status()
+    # 获取重试配置
+    max_retries = int(CFG.get("retry", {}).get("download", {}).get("max_retries", 3))
+    wait_for_input = CFG.get("retry", {}).get("download", {}).get("wait_for_input", True)
 
-        # 保存图片
-        with open(save_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
+    retry_count = 0
+    while retry_count <= max_retries:
+        try:
+            if retry_count > 0:
+                print(f"[下载] 第 {retry_count} 次重试...")
+            else:
+                print(f"[下载] 正在下载头图: {image_url}")
 
-        print(f"[下载] 头图保存成功: {save_path}")
-        return True
+            response = requests.get(
+                image_url,
+                headers=HEADERS_HTML,
+                timeout=120,
+                verify=CFG["http"]["verify_ssl"],
+                proxies=PROXIES,
+                stream=True  # 使用流式下载，适合大文件
+            )
+            response.raise_for_status()
 
-    except requests.exceptions.Timeout:
-        print("[下载] 请求超时")
-        return False
-    except requests.exceptions.ConnectionError as e:
-        print(f"[下载] 连接失败: {e}")
-        return False
-    except requests.exceptions.HTTPError as e:
-        print(f"[下载] HTTP 错误: {e}")
-        return False
-    except IOError as e:
-        print(f"[下载] 文件写入失败: {e}")
-        return False
-    except Exception as e:
-        print(f"[下载] 未知错误: {e}")
-        return False
+            # 保存图片
+            with open(save_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+
+            print(f"[下载] 头图保存成功: {save_path}")
+            return True
+
+        except requests.exceptions.Timeout:
+            print(f"[下载] 请求超时")
+        except requests.exceptions.ConnectionError as e:
+            print(f"[下载] 连接失败: {e}")
+        except requests.exceptions.HTTPError as e:
+            print(f"[下载] HTTP 错误: {e}")
+        except IOError as e:
+            print(f"[下载] 文件写入失败: {e}")
+            return False  # 文件写入失败不重试
+        except Exception as e:
+            print(f"[下载] 未知错误: {e}")
+
+        retry_count += 1
+
+        # 如果还没达到最大重试次数，等待后重试
+        if retry_count <= max_retries:
+            wait_time = retry_count * 2  # 递增等待时间：2秒、4秒、6秒
+            print(f"[下载] 等待 {wait_time} 秒后重试...")
+            time.sleep(wait_time)
+        else:
+            # 所有自动重试都失败
+            print(f"\n[下载] 已尝试 {max_retries + 1} 次，均失败")
+            print(f"[下载] 图片URL: {image_url}")
+
+            # 根据配置决定是否等待用户输入
+            if wait_for_input:
+                print("[下载] 请选择：")
+                print("  1. 继续尝试下载")
+                print("  2. 跳过（稍后手动下载）")
+
+                try:
+                    choice = input("请输入选项（1 或 2）: ").strip()
+                    if choice == "1":
+                        print("[下载] 继续尝试...")
+                        retry_count = 0  # 重置重试计数
+                        continue
+                    else:
+                        print("[下载] 已跳过头图下载")
+                        return False
+                except KeyboardInterrupt:
+                    print("\n[下载] 用户取消，跳过下载")
+                    return False
+            else:
+                print("[下载] 已跳过头图下载（配置为不等待用户输入）")
+                return False
+
+    return False
 
 
 def save_to_json(data):
