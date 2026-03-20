@@ -84,6 +84,11 @@
     .module-compact .module-checkbox input[type="checkbox"] { margin: 0; cursor: pointer; }
     .module-compact .module-checkbox span { font-size: 0.95rem; color: #333; user-select: none; }
 
+    /* 固定模块样式（不可取消勾选） */
+    .module-fixed { opacity: 0.7; cursor: not-allowed !important; }
+    .module-fixed input[type="checkbox"] { cursor: not-allowed !important; }
+    .module-fixed span { color: #666; font-weight: 600; }
+
     /* 位置切换按钮 */
     .module-position-toggle {
       padding: 4px 12px;

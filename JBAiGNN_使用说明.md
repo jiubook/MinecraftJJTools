@@ -1,14 +1,18 @@
-# Minecraft 新闻翻译工具 - 使用说明 (v0.1.3)
+# Minecraft 新闻翻译工具 - 使用说明 (v0.1.4)
 
-## 📋 功能介绍
+## 功能介绍
 
 本工具可以自动获取 Minecraft 官方网站的最新新闻和 Feedback 网站的更新日志，并使用 AI 翻译成简体中文。
 
+### v0.1.4 说明
+
+v0.1.4 主要新增了 J2MM Python 命令行版本，JBAiGNN 本身无功能变更。
+
 ### v0.1.3 新增功能
 
-- 🔧 **HTML解析优化**：改进了Feedback文章的HTML内容解析逻辑
-- 🔗 **链接处理增强**：优化了相对链接补全和Markdown链接格式转换
-- 🆔 **ID自动重排**：新增blocks ID重新索引功能，确保唯一性和连续性
+- 🔧 **HTML 解析优化**：改进了 Feedback 文章的 HTML 内容解析逻辑
+- 🔗 **链接处理增强**：优化了相对链接补全和 Markdown 链接格式转换
+- 🆔 **ID 自动重排**：新增 blocks ID 重新索引功能，确保唯一性和连续性
 - 📝 **代码块改进**：优化了代码块和嵌套列表的提取处理
 - ✨ **文本清理**：自动清理翻译文本中的多余转义字符
 
@@ -24,7 +28,7 @@
 - ⚡ **并发翻译支持**：多线程并发翻译，大幅提升翻译速度
 - 📋 **嵌套列表支持**：J2MM 工具支持多层级列表渲染
 
-## 🚀 快速开始
+## 快速开始
 
 ### 方式一：自动安装（推荐新手）
 
@@ -43,7 +47,7 @@
 python JBAiGNN_JiuBookAiGetNewestNews.py
 ```
 
-## ⚙️ 配置说明
+## 配置说明
 
 ### 首次使用前，请编辑 `config.json` 文件：
 
@@ -69,14 +73,14 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
 3. **Feedback 网站配置**（v0.1.2 新增）：
    ```json
    "feedback_site": {
-     "enabled": true,                    // 是否启用 Feedback 网站爬取
+     "enabled": true,
      "sections": [
        {
          "name": "Release Changelogs",
          "name_cn": "正式版更新日志",
          "section_id": "360001186971",
-         "enabled": true,                // 是否启用该分类
-         "articles_count": 6             // 获取文章数量
+         "enabled": true,
+         "articles_count": 6
        },
        {
          "name": "Beta and Preview Information and Changelogs",
@@ -96,7 +100,7 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
          "name": "Minecraft Education Changelogs",
          "name_cn": "教育版更新日志",
          "section_id": "360001293291",
-         "enabled": false,               // 默认关闭
+         "enabled": false,
          "articles_count": 3
        }
      ]
@@ -105,7 +109,6 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
 
    **说明**：
    - `enabled` - 是否启用 Feedback 网站爬取
-   - `sections` - 更新日志分类列表
    - 每个分类可单独启用/禁用
    - `articles_count` - 每个分类获取的文章数量（建议 3-10）
 
@@ -113,16 +116,16 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
    ```json
    "retry": {
      "translation": {
-       "max_retries": 3,           // 翻译失败时的最大重试次数
-       "wait_for_input": false     // 多次失败后是否等待用户输入
+       "max_retries": 3,
+       "wait_for_input": false
      },
      "download": {
-       "max_retries": 3,           // 下载失败时的最大重试次数
-       "wait_for_input": true      // 多次失败后是否等待用户输入
+       "max_retries": 3,
+       "wait_for_input": true
      }
    },
    "concurrency": {
-     "translation_workers": 3      // 翻译时的并发线程数（1=串行，>1=并发）
+     "translation_workers": 3
    }
    ```
 
@@ -136,7 +139,7 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
    - `timeout`: 用户选择超时时间（0 表示自动选择最新）
    - `save_dir`: 保存目录（默认 minecraft_news）
 
-## 📦 依赖库
+## 依赖库
 
 程序需要以下 Python 库（`START.BAT` 会自动安装）：
 
@@ -144,8 +147,6 @@ python JBAiGNN_JiuBookAiGetNewestNews.py
 - beautifulsoup4 >= 4.12.0
 - urllib3 >= 2.0.0
 - curl_cffi >= 0.5.0（v0.1.2 新增，用于 Feedback 网站爬取）
-
-## 🔧 手动安装依赖
 
 如果自动安装失败，可以手动安装：
 
@@ -157,7 +158,7 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 pip install -r requirements.txt
 ```
 
-## 📁 文件说明
+## 文件说明
 
 - `JBAiGNN_JiuBookAiGetNewestNews.py` - 主程序
 - `config.json` - 配置文件
@@ -166,76 +167,54 @@ pip install -r requirements.txt
 - `START_QUICK.BAT` - 快速启动脚本（适合已配置环境）
 - `minecraft_news/` - 翻译结果保存目录
 
-## ❓ 常见问题
+## 输出格式
+
+翻译结果保存为 JSON 格式，包含：
+
+- `title` / `translated_title` - 原标题 / 译标题
+- `release_date` - 发布日期
+- `url` - 原文链接
+- `blocks` - 结构化内容块（支持嵌套列表）
+- `content` / `translated_content` - 原文 / 译文纯文本
+
+## 常见问题
 
 ### 1. 提示"未检测到 Python"
 
-**解决方法**：
-- 访问 https://www.python.org/downloads/ 下载 Python 3.8+
-- 安装时务必勾选 "Add Python to PATH"
+访问 https://www.python.org/downloads/ 下载 Python 3.8+，安装时务必勾选 "Add Python to PATH"。
 
 ### 2. 依赖安装失败
 
-**解决方法**：
 ```bash
-# 尝试升级 pip
 python -m pip install --upgrade pip
-
-# 使用国内镜像源
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ### 3. 翻译失败
 
-**可能原因**：
-- API 配置错误（检查 config.json）
+- API 配置错误（检查 config.json 中的 host、api_key、model）
 - 网络连接问题（检查代理设置）
 - API 额度不足
 
-**v0.1.1 改进**：
-- 程序会自动重试失败的翻译（默认最多 3 次）
-- 可在 `config.json` 中调整 `retry.translation.max_retries` 配置
-- 如需手动干预，可设置 `retry.translation.wait_for_input` 为 `true`
+程序会自动重试失败的翻译（默认最多 3 次），可在 config.json 中调整 `retry.translation.max_retries`。
 
 ### 4. 中文乱码
 
-**解决方法**：
-- 确保使用 UTF-8 编码打开文件
-- 使用支持 UTF-8 的文本编辑器（如 VS Code、Notepad++）
+确保使用 UTF-8 编码打开文件（推荐 VS Code、Notepad++）。
 
 ### 5. Feedback 网站爬取失败（v0.1.2）
 
-**可能原因**：
-- curl_cffi 库未安装（运行 `pip install curl_cffi>=0.5.0`）
-- 网络连接问题（检查代理设置）
-- Cloudflare 防护更新（等待工具更新）
+```bash
+pip install curl_cffi>=0.5.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
 
-**解决方法**：
-- 确保已安装 curl_cffi 库
-- 检查 `config.json` 中的 `feedback_site.enabled` 是否为 `true`
-- 如不需要 Feedback 网站功能，可设置 `enabled: false` 禁用
+如不需要 Feedback 网站功能，可在 config.json 中设置 `"feedback_site": {"enabled": false}`。
 
-## 📝 输出格式
-
-翻译结果保存为 JSON 格式，包含：
-
-- `title` - 原标题
-- `translated_title` - 译标题
-- `release_date` - 发布日期
-- `url` - 原文链接
-- `blocks` - 结构化内容块（支持嵌套列表）
-- `content` - 原文纯文本
-- `translated_content` - 译文纯文本
-
-**v0.1.2 新增**：Feedback 网站的更新日志也会保存为相同格式，方便统一处理。
-
-## ⚡ 性能优化 (v0.1.1)
+## 性能优化 (v0.1.1)
 
 ### 并发翻译
 
-通过配置 `concurrency.translation_workers` 可以启用多线程并发翻译：
-
-- `translation_workers: 1` - 串行翻译（默认，适合 API 限流严格的情况）
+- `translation_workers: 1` - 串行翻译（适合 API 限流严格的情况）
 - `translation_workers: 3` - 3 个线程并发（推荐，速度提升约 3 倍）
 - `translation_workers: 5` - 5 个线程并发（适合 API 性能好的情况）
 
@@ -243,15 +222,7 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ### 自动重试
 
-翻译失败时会自动重试，无需手动重新运行：
-
-- 默认最多重试 3 次
-- 可通过 `retry.translation.max_retries` 调整
-- 设置 `retry.translation.wait_for_input: true` 可在多次失败后暂停等待用户输入
-
-## 📧 联系方式
-
-如有问题或建议，请联系：JiuBook AI
+翻译失败时会自动重试，无需手动重新运行。可通过 `retry.translation.max_retries` 调整重试次数，设置 `retry.translation.wait_for_input: true` 可在多次失败后暂停等待用户输入。
 
 ---
 

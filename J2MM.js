@@ -19,30 +19,121 @@
       enabled: true
     },
     {
+      id: 'module_java_snapshot_header',
+      title: 'Java版 每周快照 - 开头',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=48,48]https://www.mcbbs.co/data/attachment/common/ea/common_64_icon.png[/img][/float][size=32px][b][color=#645944]每周快照[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][b]每周快照[/b]是 Minecraft Java 版的测试机制，用于新特性的展示和反馈收集。\n[*][color=#8E2609]快照有可能导致存档损坏，因此请注意备份，不要直接在你的主存档游玩快照。[/color]\n[*]转载本帖时须要注明原作者以及本帖地址。[size=0px]本帖来自www.mcbbs.co[/size]\n[*]部分新特性译名仅供参考，不代表最终结果。\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'start',
+      enabled: false
+    },
+    {
+      id: 'module_java_prerelease_header',
+      title: 'Java版 预发布版 - 开头',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=48,48]https://www.mcbbs.co/data/attachment/common/ea/common_64_icon.png[/img][/float][size=32px][b][color=#645944]预发布版[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][b]预发布版[/b]是 Minecraft Java 版的测试机制，主要是为了收集漏洞反馈，为正式发布做好准备。\n[*][color=#8E2609]预发布版有可能导致存档损坏，因此请注意备份，不要直接在你的主存档游玩预发布版。[/color]\n[*]转载本帖时须要注明原作者以及本帖地址。[size=0px]本帖来自www.mcbbs.co[/size]\n[*]部分新特性译名仅供参考，不代表最终结果。\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'start',
+      enabled: false
+    },
+    {
+      id: 'module_java_rc_header',
+      title: 'Java版 候选版本 - 开头',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=48,48]https://www.mcbbs.co/data/attachment/common/ea/common_64_icon.png[/img][/float][size=32px][b][color=#645944]候选版本[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][b]候选版本[/b]是 Minecraft Java 版的测试机制。如果没有重大漏洞，该版本将会被用于正式发布。\n[*][color=#8E2609]候选版本有可能导致存档损坏，因此请注意备份，不要直接在你的主存档游玩候选版本。[/color]\n[*]转载本帖时须要注明原作者以及本帖地址。[size=0px]本帖来自www.mcbbs.co[/size]\n[*]部分新特性译名仅供参考，不代表最终结果。\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'start',
+      enabled: false
+    },
+    {
+      id: 'module_java_release_header',
+      title: 'Java 正式版 - 开头',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=46,48]https://ooo.0o0.ooo/2017/01/30/588f60bbaaf78.png[/img][/float][size=32px][b][color=#645944] Minecraft Java 版[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][b]Minecraft Java 版[/b]是指运行在 Windows、macOS 与 Linux 平台上，使用 Java 语言开发的 Minecraft 版本。\n[*][b]正式版[/b]包含所有特性且安全稳定，所有玩家都可以尽情畅享。\n[*]转载本帖时须要注明原作者以及本帖地址。[size=0px]本帖来自www.mcbbs.co[/size]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'start',
+      enabled: false
+    },
+    {
+      id: 'module_bedrock_beta_header',
+      title: '基岩版 测试版 - 开头',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=48,48]https://www.mcbbs.co/data/attachment/common/ea/common_64_icon.png[/img][/float][size=32px][b][color=#645944]测试版[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][b]测试版[/b]是 Minecraft 基岩版的测试机制，主要用于下一个正式版的特性预览。\n[*][color=#8E2609]测试版有可能导致存档损坏，因此请注意备份，不要直接在你的主存档游玩测试版。[/color]\n[*]转载本帖时须要注明原作者以及本帖地址。[size=0px]本帖来自www.mcbbs.co[/size]\n[*]部分新特性译名仅供参考，不代表最终结果。\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'start',
+      enabled: false
+    },
+    {
+      id: 'module_bedrock_release_header',
+      title: '基岩版 正式版 - 开头',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=46,48]https://ooo.0o0.ooo/2017/01/30/588f60bbaaf78.png[/img][/float][size=32px][b][color=#645944]Minecraft 基岩版[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][b]Minecraft 基岩版[/b]是指运行在移动平台（Android、iOS）、Windows 10、主机（Xbox One、Switch、PlayStation 4）上，使用「基岩引擎」（C++语言）开发的 Minecraft 版本。\n[*][b]正式版[/b]包含所有特性且安全稳定，所有玩家都可以尽情畅享。\n[*]转载本帖时须要注明原作者以及本帖地址。[size=0px]本帖来自www.mcbbs.co[/size]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'start',
+      enabled: false
+    },
+    {
+      id: 'module_commentary_header',
+      title: '时评 - 开头',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=48,48]https://www.mcbbs.co/data/attachment/common/03/common_63_icon.png[/img][/float][size=32px][b][color=#645944]时评[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][b]时评[/b]为玩家对官方消息的分析与探讨，不代表官方意见\n[*]请在交流时保持心平气和\n[*]转载本帖时须要注明原作者以及本帖地址。[size=0px]本帖来自www.mcbbs.co[/size]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'start',
+      enabled: false
+    },
+    {
+      id: 'module_normal_header',
+      title: '普通资讯/博文 - 开头',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/forum/202603/15/180957i6j4oo2mrn8s6btt.webp[/img][/float][size=24px][b][color=#645944] 转载须知[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*]转载本帖时须要注明原作者以及本帖地址。\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'start',
+      enabled: false
+    },
+    {
+      id: 'module_java_snapshot_footer',
+      title: 'Java版 每周快照 - 结尾',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/9f/common_56_icon.png[/img][/float][size=24px][b][color=#645944] 实用链接[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://www.minecraft.net/zh-hans/download/server][color=Sienna]官方服务端 jar 下载地址[/color][/url]\n[*][url=https://www.minecraft.net/zh-hans/download/][color=Sienna]正版启动器下载地址[/color][/url]\n[*][url=https://bugs.mojang.com/projects/MC/summary][color=Sienna]漏洞报告站点（仅限英文）[/color][/url]\n[*][url=https://feedback.minecraft.net/][color=Sienna]官方反馈网站（仅限英文）[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/forum/202603/16/015357jo333134doqo4yyo.webp[/img][/float][size=24px][b][color=#645944] 如何游玩快照？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*]对于正版用户：请打开官方启动器，在「配置」选项卡中启用「快照」，选择「最新快照」即可。\n[*]对于非正版用户：请于[url=https://archives.mcbbs.co/read.php?tid=38297][color=Sienna]推荐启动器列表[/color][/url]寻找合适的启动器。目前绝大多数主流启动器都带有下载功能。如仍有疑惑请到[url=https://www.mcbbs.co/forum-59-1.html][color=Sienna]原版问答[/color][/url]板块提问。\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/6c/common_45_icon.png[/img][/float][size=24px][b][color=#645944] 想了解更多资讯？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://archives.mcbbs.co/read.php?tid=874677][color=Sienna]外部来源以及详细的更新条目追踪[/color][/url]\n[*][url=https://www.mcbbs.co/forum-news-1.html][color=Sienna]我的世界中文论坛 - 幻翼块讯板块[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'end',
+      enabled: false
+    },
+    {
+      id: 'module_java_prerelease_footer',
+      title: 'Java版 预发布版 - 结尾',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/9f/common_56_icon.png[/img][/float][size=24px][b][color=#645944] 实用链接[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://www.minecraft.net/zh-hans/download/server][color=Sienna]官方服务端 jar 下载地址[/color][/url]\n[*][url=https://www.minecraft.net/zh-hans/download/][color=Sienna]正版启动器下载地址[/color][/url]\n[*][url=https://bugs.mojang.com/projects/MC/summary][color=Sienna]漏洞报告站点（仅限英文）[/color][/url]\n[*][url=https://feedback.minecraft.net/][color=Sienna]官方反馈网站（仅限英文）[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/forum/202603/16/015357jo333134doqo4yyo.webp[/img][/float][size=24px][b][color=#645944] 如何游玩预发布版？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*]对于正版用户：请打开官方启动器，在「配置」选项卡中启用「快照」，选择「最新快照」即可。\n[*]对于非正版用户：请于[url=https://archives.mcbbs.co/read.php?tid=38297][color=Sienna]推荐启动器列表[/color][/url]寻找合适的启动器。目前绝大多数主流启动器都带有下载功能。如仍有疑惑请到[url=https://www.mcbbs.co/forum-59-1.html][color=Sienna]原版问答[/color][/url]板块提问。\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/6c/common_45_icon.png[/img][/float][size=24px][b][color=#645944] 想了解更多资讯？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://archives.mcbbs.co/read.php?tid=874677][color=Sienna]外部来源以及详细的更新条目追踪[/color][/url]\n[*][url=https://www.mcbbs.co/forum-news-1.html][color=Sienna]我的世界中文论坛 - 幻翼块讯板块[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'end',
+      enabled: false
+    },
+    {
+      id: 'module_java_rc_footer',
+      title: 'Java版 候选版本 - 结尾',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/9f/common_56_icon.png[/img][/float][size=24px][b][color=#645944] 实用链接[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://www.minecraft.net/zh-hans/download/server][color=Sienna]官方服务端 jar 下载地址[/color][/url]\n[*][url=https://www.minecraft.net/zh-hans/download/][color=Sienna]正版启动器下载地址[/color][/url]\n[*][url=https://bugs.mojang.com/projects/MC/summary][color=Sienna]漏洞报告站点（仅限英文）[/color][/url]\n[*][url=https://feedback.minecraft.net/][color=Sienna]官方反馈网站（仅限英文）[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/forum/202603/16/015357jo333134doqo4yyo.webp[/img][/float][size=24px][b][color=#645944] 如何游玩候选版本？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*]对于正版用户：请打开官方启动器，在「配置」选项卡中启用「快照」，选择「最新快照」即可。\n[*]对于非正版用户：请于[url=https://archives.mcbbs.co/read.php?tid=38297][color=Sienna]推荐启动器列表[/color][/url]寻找合适的启动器。目前绝大多数主流启动器都带有下载功能。如仍有疑惑请到[url=https://www.mcbbs.co/forum-59-1.html][color=Sienna]原版问答[/color][/url]板块提问。\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/6c/common_45_icon.png[/img][/float][size=24px][b][color=#645944] 想了解更多资讯？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://archives.mcbbs.co/read.php?tid=874677][color=Sienna]外部来源以及详细的更新条目追踪[/color][/url]\n[*][url=https://www.mcbbs.co/forum-news-1.html][color=Sienna]我的世界中文论坛 - 幻翼块讯板块[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'end',
+      enabled: false
+    },
+    {
+      id: 'module_java_release_footer',
+      title: 'Java 正式版 - 结尾',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/9f/common_56_icon.png[/img][/float][size=24px][b][color=#645944] 实用链接[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://www.minecraft.net/zh-hans/download/server][color=Sienna]官方服务端 jar 下载地址[/color][/url]\n[*][url=https://www.minecraft.net/zh-hans/download/][color=Sienna]正版启动器下载地址[/color][/url]\n[*][url=https://bugs.mojang.com/projects/MC/summary][color=Sienna]漏洞报告站点（仅限英文）[/color][/url]\n[*][url=https://feedback.minecraft.net/][color=Sienna]官方反馈网站（仅限英文）[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/forum/202603/16/015357jo333134doqo4yyo.webp[/img][/float][size=24px][b][color=#645944] 如何游玩正式版？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*]对于正版用户：请打开官方启动器，选择「最新版本」即可。\n[*]对于非正版用户：请于[url=https://archives.mcbbs.co/read.php?tid=38297][color=Sienna]推荐启动器列表[/color][/url]寻找合适的启动器。目前绝大多数主流启动器都带有下载功能。如仍有疑惑请到[url=https://www.mcbbs.co/forum-59-1.html][color=Sienna]原版问答[/color][/url]板块提问。\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/6c/common_45_icon.png[/img][/float][size=24px][b][color=#645944] 想了解更多资讯？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://archives.mcbbs.co/read.php?tid=874677][color=Sienna]外部来源以及详细的更新条目追踪[/color][/url]\n[*][url=https://www.mcbbs.co/forum-news-1.html][color=Sienna]我的世界中文论坛 - 幻翼块讯板块[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'end',
+      enabled: false
+    },
+    {
+      id: 'module_bedrock_beta_footer',
+      title: '基岩版 测试版 - 结尾',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/9f/common_56_icon.png[/img][/float][size=24px][b][color=#645944] 实用链接[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://bugs.mojang.com/projects/MC/summaryPE][color=Sienna]漏洞报告站点（仅限英文）[/color][/url]\n[*][url=https://feedback.minecraft.net/][color=Sienna]官方反馈网站（仅限英文）[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/forum/202603/16/015357jo333134doqo4yyo.webp[/img][/float][size=24px][b][color=#645944] 如何游玩测试版？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*]请访问[url=https://www.minecraft.net/zh-hans/get-minecraft][color=Sienna]官方游戏获取地址[/color][/url]，根据您所使用的平台获取游戏。\n[*]基岩测试版/预览版仅限于 Windows 10、Android、iOS、Xbox One 平台。请根据[url=https://archives.mcbbs.co/thread-1299939-1-1.html][color=Sienna]官方指引[/color][/url]启用/关闭测试版/预览版。\n[*]在新建/编辑地图时，请滑动到「实验性游戏内容（Experiments）」，即可体验最新内容。\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/6c/common_45_icon.png[/img][/float][size=24px][b][color=#645944] 想了解更多资讯？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://archives.mcbbs.co/read.php?tid=874677][color=Sienna]外部来源以及详细的更新条目追踪[/color][/url]\n[*][url=https://www.mcbbs.co/forum-news-1.html][color=Sienna]我的世界中文论坛 - 幻翼块讯板块[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'end',
+      enabled: false
+    },
+    {
+      id: 'module_bedrock_release_footer',
+      title: '基岩版 正式版 - 结尾',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/9f/common_56_icon.png[/img][/float][size=24px][b][color=#645944] 实用链接[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://bugs.mojang.com/projects/MC/summaryPE][color=Sienna]漏洞报告站点（仅限英文）[/color][/url]\n[*][url=https://feedback.minecraft.net/][color=Sienna]官方反馈网站（仅限英文）[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/forum/202603/16/015357jo333134doqo4yyo.webp[/img][/float][size=24px][b][color=#645944] 如何游玩测试版？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*]请访问[url=https://www.minecraft.net/zh-hans/get-minecraft][color=Sienna]官方游戏获取地址[/color][/url]，根据您所使用的平台获取游戏。\n[*]在新建/编辑地图时，请滑动到「实验性游戏内容（Experiments）」，即可体验最新内容。\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/6c/common_45_icon.png[/img][/float][size=24px][b][color=#645944] 想了解更多资讯？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://archives.mcbbs.co/read.php?tid=874677][color=Sienna]外部来源以及详细的更新条目追踪[/color][/url]\n[*][url=https://www.mcbbs.co/forum-news-1.html][color=Sienna]我的世界中文论坛 - 幻翼块讯板块[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'end',
+      enabled: false
+    },
+    {
+      id: 'module_commentary_footer',
+      title: '时评 - 结尾',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/9f/common_56_icon.png[/img][/float][size=24px][b][color=#645944] 本文所涉及的官方消息或媒体评论[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=地址][color=Sienna]标题[/color][/url]\n[*]（如有多项请自行添加）\n[/list][/size][/td][/tr]\n[/table][/font][/align]\n[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/6c/common_45_icon.png[/img][/float][size=24px][b][color=#645944] 想了解更多资讯？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://archives.mcbbs.co/read.php?tid=874677][color=Sienna]外部来源以及详细的更新条目追踪[/color][/url]\n[*][url=https://www.mcbbs.co/forum-news-1.html][color=Sienna]我的世界中文论坛 - 幻翼块讯板块[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'end',
+      enabled: false
+    },
+    {
+      id: 'module_normal_footer',
+      title: '普通资讯/博文 - 结尾',
+      content: '[align=center][font=-apple-system, BlinkMacSystemFont,Segoe UI, Roboto, Helvetica, Arial, sans-serif][table=85%]\n[tr=#E3C99E][td][float=left][img=32,32]https://www.mcbbs.co/data/attachment/common/6c/common_45_icon.png[/img][/float][size=24px][b][color=#645944] 想了解更多资讯？[/color][/b][/size][/td][/tr]\n[tr=#FDF6E5][td][size=16px][list]\n[*][url=https://archives.mcbbs.co/read.php?tid=874677][color=Sienna]外部来源以及详细的更新条目追踪[/color][/url]\n[*][url=https://www.mcbbs.co/forum-news-1.html][color=Sienna]我的世界中文论坛 - 新闻资讯板块[/color][/url]\n[/list][/size][/td][/tr]\n[/table][/font][/align]',
+      position: 'end',
+      enabled: false
+    },
+    {
       id: 'module_Agreement',
       title: '开源协议',
       content: '[size=2][b]【本Ai工具以 [url=https://www.gnu.org/licenses/gpl-3.0.zh-cn.html]GPL-3.0[/url] 协议发布】\n【本Ai翻译作品以 [url=https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hans]CC BY-SA 4.0[/url] 协议发布】[/b][/size]',
-      position: 'end',
-      enabled: true
-    },
-    {
-      id: 'module_links',
-      title: '实用链接',
-      content: '[size=2][b]实用链接[/b]\n  [url=https://www.minecraft.net/zh-hans/download/server]官方服务端 jar 下载地址[/url]\n  [url=https://www.minecraft.net/zh-hans/download]正版启动器下载地址[/url]\n  [url=https://bugs.mojang.com/projects/MC/summary]官方漏洞报告站点[/url]（仅限英文）\n  [url=https://feedback.minecraft.net/]官方反馈及建议网站[/url]（仅限英文）[/size]',
-      position: 'end',
-      enabled: true
-    },
-    {
-      id: 'module_howto',
-      title: '如何游玩',
-      content: '[size=2][b]如何游玩正式版？[/b]\n  对于正版用户：请打开官方启动器，选择「最新版本」即可。\n  对于非正版用户：请于 [url=https://archives.mcbbs.co/read.php?tid=38297]推荐启动器列表[/url] 寻找合适的启动器。\n  目前绝大多数主流启动器都带有下载功能。\n  如仍有疑惑请到 [url=https://www.mcbbs.co/forum-59-1.html]原版问答[/url] 板块提问。[/size]',
-      position: 'end',
-      enabled: true
-    },
-    {
-      id: 'module_more',
-      title: '更多资讯',
-      content: '[size=2][b]想了解更多资讯？[/b]\n  [url=https://archives.mcbbs.co/read.php?tid=874677]外部来源以及详细的更新条目追踪[/url]\n  [url=https://www.mcbbs.co/forum-news-1.html]我的世界中文论坛 - 幻翼块讯板块[/url][/size]',
       position: 'end',
       enabled: true
     }
@@ -65,7 +156,8 @@
   const regenerateBtn = $('regenerateBtn');
   const resetEditsBtn = $('resetEditsBtn');
 
-  const defaultModulesContainer = $('defaultModulesContainer');
+  const defaultModulesStartContainer = $('defaultModulesStartContainer');
+  const defaultModulesEndContainer = $('defaultModulesEndContainer');
   const customModulesContainer = $('customModulesContainer');
   const addCustomModuleBtn = $('addCustomModuleBtn');
   const saveCustomModulesBtn = $('saveCustomModulesBtn');
@@ -109,7 +201,10 @@
   });
 
   // 默认模块管理事件（使用事件委托）
-  defaultModulesContainer.addEventListener('change', (e) => {
+  defaultModulesStartContainer.addEventListener('change', handleDefaultModuleChange);
+  defaultModulesEndContainer.addEventListener('change', handleDefaultModuleChange);
+
+  function handleDefaultModuleChange(e) {
     const el = e.target;
     const id = el.dataset.mid;
     const field = el.dataset.field;
@@ -118,31 +213,34 @@
     const mod = defaultModulesConfig.find(x => x.id === id);
     if (!mod) return;
 
-    if (field === 'enabled') mod.enabled = !!el.checked;
+    if (field === 'enabled') {
+      mod.enabled = !!el.checked;
+
+      // 双向联动勾选逻辑
+      let linkedModId = null;
+
+      // 如果是开头模块，找到对应的结尾模块
+      if (mod.position === 'start' && id.includes('_header')) {
+        linkedModId = id.replace('_header', '_footer');
+      }
+      // 如果是结尾模块，找到对应的开头模块
+      else if (mod.position === 'end' && id.includes('_footer')) {
+        linkedModId = id.replace('_footer', '_header');
+      }
+
+      // 如果找到了关联模块，同步状态
+      if (linkedModId) {
+        const linkedMod = defaultModulesConfig.find(x => x.id === linkedModId);
+        if (linkedMod) {
+          linkedMod.enabled = mod.enabled; // 同步勾选状态（勾选或取消）
+          renderDefaultModules(); // 重新渲染以更新UI
+        }
+      }
+    }
     if (field === 'position') mod.position = String(el.value);
 
     generateOutput();
-  });
-
-  // 处理位置切换按钮点击
-  defaultModulesContainer.addEventListener('click', (e) => {
-    const btn = e.target.closest('.module-position-toggle');
-    if (!btn) return;
-
-    const id = btn.dataset.mid;
-    const mod = defaultModulesConfig.find(x => x.id === id);
-    if (!mod) return;
-
-    // 切换位置
-    mod.position = mod.position === 'end' ? 'start' : 'end';
-
-    // 更新按钮显示
-    btn.dataset.position = mod.position;
-    btn.textContent = mod.position === 'end' ? '结尾' : '开头';
-    btn.className = `module-position-toggle ${mod.position === 'end' ? 'position-end' : 'position-start'}`;
-
-    generateOutput();
-  });
+  }
 
   // 实时预览：BBCode 输出框变更即刷新预览
   const updatePreviewDebounced = debounce(() => {
@@ -597,24 +695,75 @@
   // 模块管理
   // ----------------------------
   function renderDefaultModules() {
-    defaultModulesContainer.innerHTML = '';
-    defaultModulesConfig.forEach(m => {
+    defaultModulesStartContainer.innerHTML = '';
+    defaultModulesEndContainer.innerHTML = '';
+
+    // 分离开头和结尾模块
+    const startModules = defaultModulesConfig.filter(m => m.position === 'start');
+    const endModules = defaultModulesConfig.filter(m => m.position === 'end');
+
+    // 将固定模块和普通模块分开
+    const normalStartModules = startModules.filter(m => m.id !== 'module_sign');
+    const fixedStartModule = startModules.find(m => m.id === 'module_sign');
+
+    const normalEndModules = endModules.filter(m => m.id !== 'module_Agreement');
+    const fixedEndModule = endModules.find(m => m.id === 'module_Agreement');
+
+    // 渲染开头模块 - 先渲染普通模块，再渲染固定模块
+    normalStartModules.forEach(m => {
       const div = document.createElement('div');
       div.className = 'module-item module-default module-compact';
+
       div.innerHTML = `
         <label class="module-checkbox">
           <input type="checkbox" ${m.enabled ? 'checked' : ''} data-mid="${escapeAttr(m.id)}" data-field="enabled">
           <span>${escapeHtml(m.title)}</span>
         </label>
-        <button class="module-position-toggle ${m.position === 'end' ? 'position-end' : 'position-start'}"
-                data-mid="${escapeAttr(m.id)}"
-                data-field="position"
-                data-position="${escapeAttr(m.position)}">
-          ${m.position === 'end' ? '结尾' : '开头'}
-        </button>
       `;
-      defaultModulesContainer.appendChild(div);
+      defaultModulesStartContainer.appendChild(div);
     });
+
+    // 渲染固定的工具署名模块（放在最下方）
+    if (fixedStartModule) {
+      const div = document.createElement('div');
+      div.className = 'module-item module-default module-compact';
+
+      div.innerHTML = `
+        <label class="module-checkbox module-fixed">
+          <input type="checkbox" ${fixedStartModule.enabled ? 'checked' : ''} disabled data-mid="${escapeAttr(fixedStartModule.id)}" data-field="enabled">
+          <span>${escapeHtml(fixedStartModule.title)}</span>
+        </label>
+      `;
+      defaultModulesStartContainer.appendChild(div);
+    }
+
+    // 渲染结尾模块 - 先渲染普通模块，再渲染固定模块
+    normalEndModules.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'module-item module-default module-compact';
+
+      div.innerHTML = `
+        <label class="module-checkbox">
+          <input type="checkbox" ${m.enabled ? 'checked' : ''} data-mid="${escapeAttr(m.id)}" data-field="enabled">
+          <span>${escapeHtml(m.title)}</span>
+        </label>
+      `;
+      defaultModulesEndContainer.appendChild(div);
+    });
+
+    // 渲染固定的开源协议模块（放在最下方）
+    if (fixedEndModule) {
+      const div = document.createElement('div');
+      div.className = 'module-item module-default module-compact';
+
+      div.innerHTML = `
+        <label class="module-checkbox module-fixed">
+          <input type="checkbox" ${fixedEndModule.enabled ? 'checked' : ''} disabled data-mid="${escapeAttr(fixedEndModule.id)}" data-field="enabled">
+          <span>${escapeHtml(fixedEndModule.title)}</span>
+        </label>
+      `;
+      defaultModulesEndContainer.appendChild(div);
+    }
   }
 
   function renderCustomModules() {
@@ -1283,8 +1432,10 @@
     // 先处理 code（避免内部再被替换）
     s = s.replace(/\[code]([\s\S]*?)\[\/code]/gi, (_, code) => `\`\`\`\n${code.trim()}\n\`\`\``);
 
-    // 图片/链接
-    s = s.replace(/\[img]([\s\S]*?)\[\/img]/gi, (_, url) => `![](${url.trim()})`);
+    // 图片：直接删除（Markdown 输出不需要图片）
+    s = s.replace(/\[img(?:=[^\]]+)?]([\s\S]*?)\[\/img]/gi, '');
+
+    // 链接
     s = s.replace(/\[url=([^\]]+)]([\s\S]*?)\[\/url]/gi, (_, url, text) => `[${text.trim()}](${url.trim()})`);
 
     // 基础样式
@@ -1297,13 +1448,21 @@
           return trimmed ? `**${trimmed}**` : '';
         }).join('\n');
       } else {
-        // 单行，直接添加 **
-        return `**${inner}**`;
+        // 单行，先 trim 再添加 **，避免 ** 和文字之间有空格
+        const trimmed = inner.trim();
+        return trimmed ? `**${trimmed}**` : '';
       }
     });
-    s = s.replace(/\[i]([\s\S]*?)\[\/i]/gi, '*$1*');
-    s = s.replace(/\[s]([\s\S]*?)\[\/s]/gi, '~~$1~~');
-    s = s.replace(/\[u]([\s\S]*?)\[\/u]/gi, '<u>$1</u>');
+    s = s.replace(/\[i]([\s\S]*?)\[\/i]/gi, (match, inner) => {
+      const trimmed = inner.trim();
+      return trimmed ? `*${trimmed}*` : '';
+    });
+    s = s.replace(/\[s]([\s\S]*?)\[\/s]/gi, (match, inner) => {
+      const trimmed = inner.trim();
+      return trimmed ? `~~${trimmed}~~` : '';
+    });
+    // 下划线：删除标签，保留内容（Markdown 不支持下划线）
+    s = s.replace(/\[u]([\s\S]*?)\[\/u]/gi, '$1');
 
     // 引用
     s = s.replace(/\[quote]([\s\S]*?)\[\/quote]/gi, (_, inner) => {
@@ -1314,29 +1473,65 @@
     // hr
     s = s.replace(/\[hr]/gi, '---');
 
-    // align/color（用 HTML 兜底）
-    s = s.replace(/\[align=center]([\s\S]*?)\[\/align]/gi, '<div style="text-align:center">$1</div>');
-    s = s.replace(/\[color=([^\]]+)]([\s\S]*?)\[\/color]/gi, '<span style="color:$1">$2</span>');
+    // align/color：删除这些标签，只保留内容（Markdown 不支持样式）
+    // 使用循环处理嵌套标签，并 trim 内容避免多余空格
+    let prevS2 = '';
+    while (prevS2 !== s) {
+      prevS2 = s;
+      s = s.replace(/\[align=[^\]]+]([\s\S]*?)\[\/align]/gi, (_, inner) => inner.trim());
+      s = s.replace(/\[color=[^\]]+]([\s\S]*?)\[\/color]/gi, (_, inner) => inner.trim());
+    }
 
-    // size -> 标题（简单映射）
-    s = s.replace(/\[size=(\d+)]([\s\S]*?)\[\/size]/gi, (_, size, inner) => {
-      const n = parseInt(size, 10);
-      // 检查内容是否包含换行符
-      const hasNewlines = /\n/.test(inner);
+    // font：删除字体标签，只保留内容（Markdown 不支持字体）
+    prevS2 = '';
+    while (prevS2 !== s) {
+      prevS2 = s;
+      s = s.replace(/\[font=[^\]]+]([\s\S]*?)\[\/font]/gi, (_, inner) => inner.trim());
+    }
 
-      if (hasNewlines) {
-        // 如果包含换行符，保留原样（只移除 size 标签）
-        return inner;
-      } else {
-        // 如果是单行，尝试转换为标题
-        const t = stripNewlines(inner);
-        if (n >= 7) return `# ${t}`;
-        if (n === 6) return `## ${t}`;
-        if (n === 5) return `### ${t}`;
-        if (n === 4) return `#### ${t}`;
-        return t;
-      }
-    });
+    // table/tr/td：删除表格标签，只保留内容（Markdown 不支持复杂表格样式）
+    prevS2 = '';
+    while (prevS2 !== s) {
+      prevS2 = s;
+      s = s.replace(/\[table(?:=[^\]]+)?]([\s\S]*?)\[\/table]/gi, '$1');
+      s = s.replace(/\[tr(?:=[^\]]+)?]([\s\S]*?)\[\/tr]/gi, '$1');
+      s = s.replace(/\[td]([\s\S]*?)\[\/td]/gi, '$1');
+    }
+
+    // float：删除浮动标签，只保留内容（Markdown 不支持浮动）
+    prevS2 = '';
+    while (prevS2 !== s) {
+      prevS2 = s;
+      s = s.replace(/\[float=[^\]]+]([\s\S]*?)\[\/float]/gi, '$1');
+    }
+
+    // size -> 标题（简单映射），支持 [size=数字] 和 [size=数字px] 两种格式
+    // 使用循环处理嵌套的 size 标签
+    let prevS = '';
+    while (prevS !== s) {
+      prevS = s;
+      s = s.replace(/\[size=(\d+)(?:px)?]([\s\S]*?)\[\/size]/gi, (_, size, inner) => {
+        const n = parseInt(size, 10);
+        // 检查内容是否包含换行符
+        const hasNewlines = /\n/.test(inner);
+
+        if (hasNewlines) {
+          // 如果包含换行符，保留原样（只移除 size 标签）
+          return inner;
+        } else {
+          // 如果是单行，尝试转换为标题
+          const t = stripNewlines(inner);
+          if (n >= 24) return `# ${t}`;  // 24px 及以上 -> h1
+          if (n >= 20) return `## ${t}`; // 20px 及以上 -> h2
+          if (n >= 16) return `### ${t}`; // 16px 及以上 -> h3
+          if (n >= 7) return `# ${t}`;
+          if (n === 6) return `## ${t}`;
+          if (n === 5) return `### ${t}`;
+          if (n === 4) return `#### ${t}`;
+          return t;
+        }
+      });
+    }
 
     // 列表：支持 [list] 和 [list=1]
     // 有序列表 [list=1]
@@ -1401,31 +1596,72 @@
     let html = escapeHtml(input);
 
     // 先处理 align，避免被内层标签破坏
-    html = html.replace(/\[align=center]([\s\S]*?)\[\/align]/gi, '<div style="text-align:center">$1</div>');
+    html = html.replace(/\[align=center]([\s\S]*?)\[\/align]/gi, '<div align="center">$1</div>');
 
-    // 标题 size + b（先处理）
-    html = html.replace(/\[size=(\d+)]\s*\[b]([\s\S]*?)\[\/b]\s*\[\/size]/gi, (_, s, t) => {
-      const n = parseInt(s, 10);
-      const text = t.trim();
-      if (n >= 7) return `<h1>${text}</h1>`;
-      if (n === 6) return `<h2>${text}</h2>`;
-      if (n === 5) return `<h3>${text}</h3>`;
-      if (n === 4) return `<strong style="font-size:1.2em">${text}</strong>`;
-      return `<strong>${text}</strong>`;
-    });
+    // 处理 font 标签
+    html = html.replace(/\[font=([^\]]+)]([\s\S]*?)\[\/font]/gi, '<font face="$1">$2</font>');
 
-    // 单独的 size 标签（不带 b）
-    html = html.replace(/\[size=(\d+)]([\s\S]*?)\[\/size]/gi, (_, s, t) => {
-      const n = parseInt(s, 10);
-      const text = t.trim();
-      if (n >= 7) return `<span style="font-size:2em">${text}</span>`;
-      if (n === 6) return `<span style="font-size:1.5em">${text}</span>`;
-      if (n === 5) return `<span style="font-size:1.3em">${text}</span>`;
-      if (n === 4) return `<span style="font-size:1.2em">${text}</span>`;
-      if (n === 3) return `<span style="font-size:1em">${text}</span>`;
-      if (n === 2) return `<span style="font-size:0.9em">${text}</span>`;
-      return `<span style="font-size:0.8em">${text}</span>`;
-    });
+    // 处理 table 标签
+    html = html.replace(/\[table=(\d+)%]/gi, '<table cellspacing="0" class="t_table" style="width:$1%"><tbody>');
+    html = html.replace(/\[table]/gi, '<table cellspacing="0" class="t_table"><tbody>');
+    html = html.replace(/\[\/table]/gi, '</tbody></table>');
+
+    // 处理 tr 标签（带背景色）
+    html = html.replace(/\[tr=(#[A-Fa-f0-9]{6})]/gi, '<tr style="background-color:$1"><td>');
+    html = html.replace(/\[tr]/gi, '<tr><td>');
+    html = html.replace(/\[\/tr]/gi, '</td></tr>');
+
+    // 处理 td 标签
+    html = html.replace(/\[td]/gi, '<td>');
+    html = html.replace(/\[\/td]/gi, '</td>');
+
+    // 处理 float 标签
+    html = html.replace(/\[float=left]/gi, '<span style="float:left;margin-right:5px">');
+    html = html.replace(/\[float=right]/gi, '<span style="float:right;margin-left:5px">');
+    html = html.replace(/\[\/float]/gi, '</span>');
+
+    // 处理带尺寸的 img 标签
+    html = html.replace(/\[img=(\d+),(\d+)]([\s\S]*?)\[\/img]/gi, '<img width="$1" height="$2" src="$3" alt="" style="max-width:100%" />');
+
+    // 处理 size 标签 - 使用循环处理嵌套，从内到外
+    let maxSizeIterations = 10;
+    while ((html.includes('[size=') || html.includes('[size]')) && maxSizeIterations-- > 0) {
+      // 先处理 size + b（带像素单位）- 匹配不包含[size的内容
+      html = html.replace(/\[size=(\d+)px]\s*\[b]((?:(?!\[size)[\s\S])*?)\[\/b]\s*\[\/size]/gi, (_, s, t) => {
+        const text = t.trim();
+        return `<font style="font-size:${s}px"><strong>${text}</strong></font>`;
+      });
+
+      // 处理 size + b（不带像素单位）
+      html = html.replace(/\[size=([\d.]+)]\s*\[b]((?:(?!\[size)[\s\S])*?)\[\/b]\s*\[\/size]/gi, (_, s, t) => {
+        const n = parseFloat(s);
+        const text = t.trim();
+        if (n >= 7) return `<h1>${text}</h1>`;
+        if (n === 6) return `<h2>${text}</h2>`;
+        if (n === 5) return `<h3>${text}</h3>`;
+        if (n === 4) return `<strong style="font-size:1.2em">${text}</strong>`;
+        return `<strong>${text}</strong>`;
+      });
+
+      // 单独的 size 标签（带像素单位）
+      html = html.replace(/\[size=(\d+)px]((?:(?!\[size)[\s\S])*?)\[\/size]/gi, (_, s, t) => {
+        const text = t.trim();
+        return `<font style="font-size:${s}px">${text}</font>`;
+      });
+
+      // 单独的 size 标签（不带像素单位）
+      html = html.replace(/\[size=([\d.]+)]((?:(?!\[size)[\s\S])*?)\[\/size]/gi, (_, s, t) => {
+        const n = parseFloat(s);
+        const text = t.trim();
+        if (n >= 7) return `<span style="font-size:2em">${text}</span>`;
+        if (n === 6) return `<span style="font-size:1.5em">${text}</span>`;
+        if (n === 5) return `<span style="font-size:1.3em">${text}</span>`;
+        if (n === 4) return `<span style="font-size:1.2em">${text}</span>`;
+        if (n === 3) return `<span style="font-size:1em">${text}</span>`;
+        if (n === 2) return `<span style="font-size:0.9em">${text}</span>`;
+        return `<span style="font-size:0.8em">${text}</span>`;
+      });
+    }
 
     // b/i/u/s
     html = html.replace(/\[b]([\s\S]*?)\[\/b]/gi, '<strong>$1</strong>');
@@ -1471,6 +1707,22 @@
     // 换行：保留视觉效果（注意 code/pre 内也会有 <br>，但不影响预览）
     html = html.replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
 
+    // 清理表格相关标签之间的 <br>
+    html = html.replace(/<tbody>(<br>)+/gi, '<tbody>');
+    html = html.replace(/(<br>)+<\/tbody>/gi, '</tbody>');
+    html = html.replace(/<\/tr>(<br>)+<tr/gi, '</tr><tr');
+    html = html.replace(/<\/tr>(<br>)+<\/tbody>/gi, '</tr></tbody>');
+    html = html.replace(/<table([^>]*)>(<br>)+/gi, '<table$1>');
+    html = html.replace(/(<br>)+<\/table>/gi, '</table>');
+    html = html.replace(/<tr([^>]*)>(<br>)*<td>/gi, '<tr$1><td>');
+    html = html.replace(/<\/td>(<br>)*<\/tr>/gi, '</td></tr>');
+
+    // 清理 div 和 font 标签之间的 <br>
+    html = html.replace(/<\/div>(<br>)+<div/gi, '</div><div');
+    html = html.replace(/<div([^>]*)>(<br>)+/gi, '<div$1>');
+    html = html.replace(/<font([^>]*)>(<br>)+/gi, '<font$1>');
+    html = html.replace(/(<br>)+<\/font>/gi, '</font>');
+
     // 简单清理：ul/ol 内只删除 li 标签之间的 <br>，保留 li 内部的 <br>
     html = html.replace(/<(ul|ol)>([\s\S]*?)<\/\1>/gi, (m, tag, inner) => {
       // 只删除 </li> 和 <li> 之间的 <br>，以及开头和结尾的 <br>
@@ -1486,6 +1738,31 @@
 
     // 清理标题标签后的 <br>（h1-h6）
     html = html.replace(/(<\/h[1-6]>)(<br\s*\/?>)+/gi, '$1');
+
+    // 清理 table 和 div 前后的多余 <br> 和 <hr>
+    // 清理 table 前面的所有 <br>
+    html = html.replace(/(<br>)+<table/gi, '<table');
+
+    // 清理 font 标签后面紧跟的多个 <br>（在table前）
+    html = html.replace(/(<font[^>]*>)(<br>){2,}/gi, '$1');
+
+    // 清理 div 标签后面紧跟的多个 <br>
+    html = html.replace(/(<div[^>]*>)(<br>){2,}/gi, '$1');
+
+    // 清理 table 后面的多余 <br>
+    html = html.replace(/(<\/table>)(<br>){2,}/gi, '$1<br>');
+
+    // 清理 div 后面的多余 <br>
+    html = html.replace(/(<\/div>)(<br>){2,}/gi, '$1<br>');
+
+    // 清理 hr 前后的多余 <br>，但保留各1个
+    // 先清理多个 <br> 为 1个
+    html = html.replace(/(<br>){2,}<hr/gi, '<br><hr');
+    html = html.replace(/<hr\s*\/?>((<br>){2,})/gi, '<hr><br>');
+
+    // 如果 hr 前后没有 <br>，添加一个
+    html = html.replace(/([^>])<hr/gi, '$1<br><hr');
+    html = html.replace(/<hr\s*\/?>((?!<br>)[^<])/gi, '<hr><br>$1');
 
     return html;
   }
