@@ -1,10 +1,17 @@
+
+本工具集暂停更新，请移步[Minecraft Translation Tool kit](https://github.com/jiubook/MCTTK)
+
+[MCTTK —— Minecraft 新闻自动爬取 + 翻译 + 发布](https://github.com/jiubook/MCTTK)
+
+---
+
 # MinecraftJJTools
 Minecraft 新闻翻译工具集
 
 ## 工具介绍
 
 - **JBAiGNN** (JiuBookAiGetNewestNews) — 自动获取 Minecraft 官方新闻并 AI 翻译，输出结构化 JSON
-- **J2MM** (JsonToMcbbsMarkdown) — 将 JSON 转换为 BBCode 或 Markdown，提供 HTML 和 Python 两个版本
+- [**J2MM** (JsonToMcbbsMarkdown) — 将 JSON 转换为 BBCode 或 Markdown，提供 HTML 和 Python 两个版本](https://jiubook.github.io/MinecraftJJTools/J2MM_JsonToMcbbsMarkdown.html)
 
 ## 使用流程
 
